@@ -1,3 +1,5 @@
+// src/main/java/com/shopzone/security/JwtAuthenticationFilter.java
+
 package com.shopzone.security;
 
 import com.shopzone.service.JwtService;
@@ -23,13 +25,11 @@ import java.io.IOException;
 @Component
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
-  // Manual logger instead of @Slf4j
   private static final Logger log = LoggerFactory.getLogger(JwtAuthenticationFilter.class);
 
   private final JwtService jwtService;
   private final UserDetailsService userDetailsService;
 
-  // Constructor with @Lazy to break circular dependency
   public JwtAuthenticationFilter(JwtService jwtService,
                                  @Lazy UserDetailsService userDetailsService) {
     this.jwtService = jwtService;
@@ -43,18 +43,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
       @NonNull FilterChain filterChain
   ) throws ServletException, IOException {
 
-    // Skip filter for public endpoints
-    final String path = request.getServletPath();
-    if (isPublicEndpoint(path)) {
-      filterChain.doFilter(request, response);
-      return;
-    }
-
     final String authHeader = request.getHeader("Authorization");
     final String jwt;
     final String userEmail;
 
-    // Check if Authorization header exists and starts with "Bearer "
+    // If no Authorization header or doesn't start with Bearer, continue without auth
     if (!StringUtils.hasText(authHeader) || !authHeader.startsWith("Bearer ")) {
       filterChain.doFilter(request, response);
       return;
@@ -64,6 +57,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     try {
       userEmail = jwtService.extractUsername(jwt);
+      log.debug("Extracted email from token: {}", userEmail);
 
       if (userEmail != null && SecurityContextHolder.getContext().getAuthentication() == null) {
         UserDetails userDetails = this.userDetailsService.loadUserByUsername(userEmail);
@@ -76,7 +70,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
           );
           authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
           SecurityContextHolder.getContext().setAuthentication(authToken);
-          log.debug("User authenticated: {}", userEmail);
+          log.debug("User authenticated successfully: {}", userEmail);
+        } else {
+          log.debug("Token is not valid for user: {}", userEmail);
         }
       }
     } catch (Exception e) {
@@ -84,14 +80,5 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     }
 
     filterChain.doFilter(request, response);
-  }
-
-  private boolean isPublicEndpoint(String path) {
-    return path.startsWith("/api/auth/") ||
-        path.startsWith("/swagger-ui") ||
-        path.startsWith("/api-docs") ||
-        path.startsWith("/v3/api-docs") ||
-        path.startsWith("/api/products") ||
-        path.startsWith("/api/categories");
   }
 }

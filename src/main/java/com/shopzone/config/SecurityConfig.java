@@ -1,7 +1,8 @@
+// src/main/java/com/shopzone/config/SecurityConfig.java
+
 package com.shopzone.config;
 
 import com.shopzone.security.JwtAuthenticationFilter;
-import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
@@ -14,7 +15,6 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
-import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -35,24 +35,11 @@ public class SecurityConfig {
   private final JwtAuthenticationFilter jwtAuthFilter;
   private final UserDetailsService userDetailsService;
 
-  // Constructor injection with @Lazy to break circular dependency
   public SecurityConfig(@Lazy JwtAuthenticationFilter jwtAuthFilter,
                         @Lazy UserDetailsService userDetailsService) {
     this.jwtAuthFilter = jwtAuthFilter;
     this.userDetailsService = userDetailsService;
   }
-
-  // Public endpoints that don't require authentication
-  private static final String[] PUBLIC_URLS = {
-      "/api/auth/**",
-      "/api/products/**",
-      "/api/categories/**",
-      "/swagger-ui/**",
-      "/swagger-ui.html",
-      "/api-docs/**",
-      "/v3/api-docs/**",
-      "/actuator/health"
-  };
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
@@ -60,8 +47,32 @@ public class SecurityConfig {
         .csrf(AbstractHttpConfigurer::disable)
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
         .authorizeHttpRequests(auth -> auth
-            .requestMatchers(PUBLIC_URLS).permitAll()
+            // Public auth endpoints (no token needed)
+            .requestMatchers(
+                "/api/auth/register",
+                "/api/auth/login",
+                "/api/auth/refresh",
+                "/api/auth/forgot-password",
+                "/api/auth/reset-password",
+                "/api/auth/verify/**"
+            ).permitAll()
+            // Public endpoints
+            .requestMatchers(
+                "/api/products/**",
+                "/api/categories/**"
+            ).permitAll()
+            // Swagger/OpenAPI
+            .requestMatchers(
+                "/swagger-ui/**",
+                "/swagger-ui.html",
+                "/api-docs/**",
+                "/v3/api-docs/**"
+            ).permitAll()
+            // Health check
+            .requestMatchers("/actuator/health").permitAll()
+            // Admin endpoints
             .requestMatchers("/api/admin/**").hasRole("ADMIN")
+            // All other endpoints require authentication
             .anyRequest().authenticated()
         )
         .sessionManagement(session -> session

@@ -1,12 +1,12 @@
-// src/main/java/com/shopzone/controller/AuthController.java
-
 package com.shopzone.controller;
 
 import com.shopzone.dto.request.*;
 import com.shopzone.dto.response.ApiResponse;
 import com.shopzone.dto.response.AuthResponse;
 import com.shopzone.dto.response.UserResponse;
+import com.shopzone.exception.ResourceNotFoundException;
 import com.shopzone.model.User;
+import com.shopzone.repository.UserRepository;
 import com.shopzone.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
@@ -19,6 +19,7 @@ import org.slf4j.LoggerFactory;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
@@ -29,9 +30,11 @@ public class AuthController {
   private static final Logger log = LoggerFactory.getLogger(AuthController.class);
 
   private final AuthService authService;
+  private final UserRepository userRepository;
 
-  public AuthController(AuthService authService) {
+  public AuthController(AuthService authService, UserRepository userRepository) {
     this.authService = authService;
+    this.userRepository = userRepository;
   }
 
   @Operation(
@@ -174,12 +177,18 @@ public class AuthController {
       @io.swagger.v3.oas.annotations.responses.ApiResponse(
           responseCode = "200",
           description = "Logout successful"
+      ),
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(
+          responseCode = "401",
+          description = "Not authenticated"
       )
   })
   @PostMapping("/logout")
-  public ResponseEntity<ApiResponse<Void>> logout(@AuthenticationPrincipal User user) {
-    log.info("Logout request for user: {}", user.getEmail());
-    authService.logout(user.getEmail());
+  public ResponseEntity<ApiResponse<Void>> logout(
+      @AuthenticationPrincipal UserDetails userDetails) {
+    String email = userDetails.getUsername();
+    log.info("Logout request for user: {}", email);
+    authService.logout(email);
     return ResponseEntity.ok(ApiResponse.success("Logged out successfully"));
   }
 
@@ -199,8 +208,13 @@ public class AuthController {
   })
   @GetMapping("/me")
   public ResponseEntity<ApiResponse<UserResponse>> getCurrentUser(
-      @AuthenticationPrincipal User user) {
-    log.info("Get current user request for: {}", user.getEmail());
+      @AuthenticationPrincipal UserDetails userDetails) {
+    String email = userDetails.getUsername();
+    log.info("Get current user request for: {}", email);
+
+    User user = userRepository.findByEmail(email)
+        .orElseThrow(() -> new ResourceNotFoundException("User not found"));
+
     return ResponseEntity.ok(
         ApiResponse.success("User retrieved successfully", UserResponse.from(user))
     );
