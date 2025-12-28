@@ -92,6 +92,12 @@ Thumbs.db
 application-prod.yml
 application-secret.yml
 
+
+# Spring Boot config files (DO NOT COMMIT)
+src/main/resources/application.properties
+src/main/resources/application*.yml
+
+
 # Logs
 logs/
 
