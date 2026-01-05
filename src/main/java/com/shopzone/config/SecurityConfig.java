@@ -1,11 +1,11 @@
-// src/main/java/com/shopzone/config/SecurityConfig.java
-
 package com.shopzone.config;
 
 import com.shopzone.security.JwtAuthenticationFilter;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Lazy;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -30,24 +30,23 @@ import java.util.List;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
+@RequiredArgsConstructor
 public class SecurityConfig {
 
   private final JwtAuthenticationFilter jwtAuthFilter;
-  private final UserDetailsService userDetailsService;
-
-  public SecurityConfig(@Lazy JwtAuthenticationFilter jwtAuthFilter,
-                        @Lazy UserDetailsService userDetailsService) {
-    this.jwtAuthFilter = jwtAuthFilter;
-    this.userDetailsService = userDetailsService;
-  }
+  private final @Lazy UserDetailsService userDetailsService;
 
   @Bean
   public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
     http
         .csrf(AbstractHttpConfigurer::disable)
         .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+        .sessionManagement(session ->
+            session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
         .authorizeHttpRequests(auth -> auth
-            // Public auth endpoints (no token needed)
+
+
+            // Auth endpoints (login, register, etc.)
             .requestMatchers(
                 "/api/auth/register",
                 "/api/auth/login",
@@ -56,11 +55,7 @@ public class SecurityConfig {
                 "/api/auth/reset-password",
                 "/api/auth/verify/**"
             ).permitAll()
-            // Public endpoints
-            .requestMatchers(
-                "/api/products/**",
-                "/api/categories/**"
-            ).permitAll()
+
             // Swagger/OpenAPI
             .requestMatchers(
                 "/swagger-ui/**",
@@ -68,15 +63,30 @@ public class SecurityConfig {
                 "/api-docs/**",
                 "/v3/api-docs/**"
             ).permitAll()
+
+            // Categories: Public READ access
+            .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
+
+            // Products: Public READ access
+            .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
+
             // Health check
             .requestMatchers("/actuator/health").permitAll()
-            // Admin endpoints
-            .requestMatchers("/api/admin/**").hasRole("ADMIN")
-            // All other endpoints require authentication
+
+
+            // Categories - Admin only for write operations
+            .requestMatchers(HttpMethod.POST, "/api/categories/**").hasRole("ADMIN")
+            .requestMatchers(HttpMethod.PUT, "/api/categories/**").hasRole("ADMIN")
+            .requestMatchers(HttpMethod.DELETE, "/api/categories/**").hasRole("ADMIN")
+
+            // Products - Admin only for write operations
+            .requestMatchers(HttpMethod.POST, "/api/products/**").hasRole("ADMIN")
+            .requestMatchers(HttpMethod.PUT, "/api/products/**").hasRole("ADMIN")
+            .requestMatchers(HttpMethod.DELETE, "/api/products/**").hasRole("ADMIN")
+
+
+            // All other requests require authentication
             .anyRequest().authenticated()
-        )
-        .sessionManagement(session -> session
-            .sessionCreationPolicy(SessionCreationPolicy.STATELESS)
         )
         .authenticationProvider(authenticationProvider())
         .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class);
@@ -110,7 +120,7 @@ public class SecurityConfig {
         "http://localhost:5173"
     ));
     configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-    configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
+    configuration.setAllowedHeaders(List.of("*"));
     configuration.setExposedHeaders(List.of("Authorization"));
     configuration.setAllowCredentials(true);
     configuration.setMaxAge(3600L);
