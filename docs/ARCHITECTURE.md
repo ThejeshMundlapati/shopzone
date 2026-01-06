@@ -1,255 +1,361 @@
 # ShopZone Architecture Documentation
 
-## Overview
+## System Overview
 
-ShopZone is designed as a modular monolith that will evolve into a microservices architecture. This document describes the architectural decisions and patterns used.
-
-## Current Architecture (Phase 1)
+ShopZone uses a **polyglot persistence** architecture with multiple specialized databases for different data types.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         Client Apps                             │
-│              (Web Browser / Mobile / Postman)                   │
-└─────────────────────────────┬───────────────────────────────────┘
-                              │ HTTP/HTTPS
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      Spring Boot Application                    │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │                    Security Filter Chain                  │  │
-│  │                  (JWT Authentication)                     │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                              │                                  │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │                     REST Controllers                      │  │
-│  │              (AuthController, UserController)             │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                              │                                  │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │                      Service Layer                        │  │
-│  │          (AuthService, UserService, JwtService)           │  │
-│  └───────────────────────────────────────────────────────────┘  │
-│                              │                                  │
-│  ┌───────────────────────────────────────────────────────────┐  │
-│  │                    Repository Layer                       │  │
-│  │                    (Spring Data JPA)                      │  │
-│  └───────────────────────────────────────────────────────────┘  │
-└─────────────────────────────┬───────────────────────────────────┘
+                                    ┌─────────────────┐
+                                    │   Cloudinary    │
+                                    │  (Image CDN)    │
+                                    └────────▲────────┘
+                                             │
+┌──────────┐      ┌──────────────────────────┴───────────────────────────┐
+│  Client  │────▶ │                   Spring Boot API                    │
+└──────────┘      │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐   │
+                  │  │   Auth      │  │  Product    │  │  Category   │   │
+                  │  │  Service    │  │  Service    │  │  Service    │   │
+                  │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘   │
+                  └─────────┼────────────────┼────────────────┼──────────┘
+                            │                │                │
+                            ▼                └───────┬────────┘
+                    ┌──────────────┐                 ▼
+                    │  PostgreSQL  │         ┌──────────────┐
+                    │   (Users)    │         │   MongoDB    │
+                    └──────────────┘         │  (Products)  │
+                                             └──────────────┘
+```
+
+---
+
+## Database Strategy
+
+### Why Two Databases?
+
+| Database | Use Case | Reason |
+|----------|----------|--------|
+| **PostgreSQL** | Users, Orders, Transactions | ACID compliance, relational integrity, secure transactions |
+| **MongoDB** | Products, Categories | Flexible schema, nested documents, fast catalog reads |
+
+### PostgreSQL Schema (Users)
+
+```sql
+users
+├── id (UUID, PK)
+├── email (UNIQUE)
+├── password (BCrypt)
+├── first_name
+├── last_name
+├── phone
+├── role (ENUM: CUSTOMER, ADMIN)
+├── email_verified
+├── verification_token
+├── reset_token
+├── reset_token_expiry
+├── created_at
+└── updated_at
+```
+
+### MongoDB Collections
+
+#### products
+
+```javascript
+{
+  _id: ObjectId,
+  name: String,
+  description: String,
+  slug: String (indexed, unique),
+  sku: String (indexed, unique),
+  price: Decimal128,
+  discountPrice: Decimal128,
+  discountPercentage: Number,
+  stock: Number,
+  categoryId: String (indexed),
+  brand: String (indexed),
+  images: [String],
+  tags: [String],
+  active: Boolean (indexed),
+  featured: Boolean (indexed),
+  details: {
+    weight: String,
+    dimensions: String,
+    color: String,
+    size: String,
+    material: String,
+    specifications: Object
+  },
+  createdAt: Date,
+  updatedAt: Date
+}
+
+// Indexes
+{ slug: 1 }
+{ sku: 1 }
+{ categoryId: 1, active: 1 }
+{ brand: 1, active: 1 }
+{ price: 1, active: 1 }
+{ featured: 1, active: 1 }
+{ name: "text", description: "text", brand: "text" }
+```
+
+#### categories
+
+```javascript
+{
+  _id: ObjectId,
+  name: String,
+  description: String,
+  slug: String (indexed, unique),
+  parentId: String (indexed),
+  level: Number,
+  path: String,
+  imageUrl: String,
+  active: Boolean,
+  displayOrder: Number,
+  createdAt: Date,
+  updatedAt: Date
+}
+
+// Indexes
+{ slug: 1 }
+{ parentId: 1, active: 1 }
+{ level: 1 }
+```
+
+---
+
+## Application Layers
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                      Controller Layer                       │
+│  - REST endpoints                                           │
+│  - Request validation                                       │
+│  - Response formatting                                      │
+│  - @PreAuthorize for security                               │
+└─────────────────────────────────────────────────────────────┘
                               │
                               ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                        PostgreSQL                               │
-│                     (Docker Container)                          │
-└─────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                       Service Layer                         │
+│  - Business logic                                           │
+│  - Transaction management                                   │
+│  - DTO mapping                                              │
+│  - Validation rules                                         │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                      Repository Layer                       │
+│  - JpaRepository (PostgreSQL)                               │
+│  - MongoRepository (MongoDB)                                │
+│  - Custom queries with @Query                               │
+└─────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────┐
+│                       Data Layer                            │
+│  - PostgreSQL (Users, Auth)                                 │
+│  - MongoDB (Products, Categories)                           │
+│  - Cloudinary (Images)                                      │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-## Design Patterns Used
-
-### 1. Layered Architecture
-
-```
-Controller Layer  →  Handles HTTP requests/responses
-       ↓
-Service Layer     →  Business logic
-       ↓
-Repository Layer  →  Data access
-       ↓
-Entity Layer      →  Domain models
-```
-
-### 2. DTO Pattern
-
-Separate objects for:
-- **Request DTOs**: Input validation
-- **Response DTOs**: Output formatting
-- **Entities**: Database mapping
-
-```
-Request Flow:
-RegisterRequest --> AuthService --> User Entity --> UserRepository
-
-Response Flow:
-UserRepository --> User Entity --> AuthService --> UserResponse
-```
-
-### 3. Repository Pattern
-
-Spring Data JPA repositories abstract database operations:
-
-```java
-public interface UserRepository extends JpaRepository<User, UUID> {
-  Optional<User> findByEmail(String email);
-  boolean existsByEmail(String email);
-}
-```
-
-### 4. Builder Pattern
-
-Used for creating complex objects:
-
-```java
-User user = User.builder()
-    .firstName("John")
-    .lastName("Doe")
-    .email("john@example.com")
-    .build();
-```
+---
 
 ## Security Architecture
 
-### JWT Token Flow
+### Authentication Flow
 
 ```
-┌────────┐     ┌────────────┐     ┌────────────┐     ┌──────────┐
-│ Client │────►│   Login    │────►│ Validate   │────►│ Generate │
-│        │     │  Request   │     │ Credentials│     │   JWT    │
-└────────┘     └────────────┘     └────────────┘     └────┬─────┘
-                                                          │
-┌────────┐     ┌────────────┐     ┌────────────┐          │
-│ Client │◄────│  Response  │◄────│  Tokens    │◄─────────┘
-│        │     │            │     │ (Access +  │
-└────────┘     └────────────┘     │  Refresh)  │
-                                  └────────────┘
+1. User Login
+   └─▶ AuthController.login()
+       └─▶ AuthService.authenticate()
+           ├─▶ Validate credentials
+           ├─▶ Generate Access Token (24h)
+           ├─▶ Generate Refresh Token (7d)
+           └─▶ Return tokens
 
-Subsequent Requests:
-
-┌────────┐     ┌────────────┐     ┌────────────┐     ┌──────────┐
-│ Client │────►│  Request   │────►│   JWT      │────►│ Process  │
-│        │     │ + Bearer   │     │  Filter    │     │ Request  │
-└────────┘     │   Token    │     │ Validates  │     └──────────┘
-               └────────────┘     └────────────┘
+2. Protected Request
+   └─▶ JwtAuthenticationFilter
+       ├─▶ Extract token from header
+       ├─▶ Validate token signature
+       ├─▶ Check expiration
+       ├─▶ Load user details
+       └─▶ Set SecurityContext
 ```
 
-### Token Structure
+### Endpoint Security Matrix
 
-**Access Token (24 hours):**
-```json
+| Endpoint Pattern | Public | Customer | Admin |
+|-----------------|--------|----------|-------|
+| POST /api/auth/** | ✅ | ✅ | ✅ |
+| GET /api/products/** | ✅ | ✅ | ✅ |
+| GET /api/categories/** | ✅ | ✅ | ✅ |
+| POST /api/products | ❌ | ❌ | ✅ |
+| PUT /api/products/* | ❌ | ❌ | ✅ |
+| DELETE /api/products/* | ❌ | ❌ | ✅ |
+| POST /api/categories | ❌ | ❌ | ✅ |
+| PUT /api/categories/* | ❌ | ❌ | ✅ |
+| DELETE /api/categories/* | ❌ | ❌ | ✅ |
+
+---
+
+## Image Storage Architecture
+
+### Why Cloudinary?
+
+- **Free tier**: 25GB storage, 25GB bandwidth/month
+- **CDN**: Global content delivery
+- **Transformations**: Resize, crop, optimize on-the-fly
+- **No server storage**: Offload storage to cloud
+
+### Upload Flow
+
+```
+1. Client uploads image
+   └─▶ ProductController.uploadImages()
+       └─▶ CloudinaryService.uploadImage()
+           ├─▶ Validate file type & size
+           ├─▶ Upload to Cloudinary
+           │   └─▶ Folder: products/{product_id}
+           ├─▶ Get secure URL
+           └─▶ Add URL to product.images[]
+
+2. Image URL structure
+   https://res.cloudinary.com/{cloud}/image/upload/v{version}/{folder}/{public_id}.{format}
+```
+
+---
+
+## Category Hierarchy Design
+
+### Tree Structure
+
+```
+Electronics (level: 0, path: "/electronics")
+├── Smartphones (level: 1, path: "/electronics/smartphones")
+│   ├── Android (level: 2, path: "/electronics/smartphones/android")
+│   └── iPhone (level: 2, path: "/electronics/smartphones/iphone")
+├── Laptops (level: 1, path: "/electronics/laptops")
+└── Headphones (level: 1, path: "/electronics/headphones")
+```
+
+### Breadcrumb Generation
+
+```java
+// For category: iPhone
+breadcrumbs = [
+  { name: "Electronics", slug: "electronics" },
+  { name: "Smartphones", slug: "smartphones" },
+  { name: "iPhone", slug: "iphone" }
+]
+```
+
+---
+
+## Search Implementation
+
+### Search Strategy
+
+Uses MongoDB regex for flexible matching:
+
+```javascript
+// Search query
 {
-  "sub": "user@example.com",
-  "iat": 1705312200,
-  "exp": 1705398600,
-  "jti": "unique-token-id"
+  "$or": [
+    { "name": { "$regex": "apple", "$options": "i" } },
+    { "description": { "$regex": "apple", "$options": "i" } },
+    { "brand": { "$regex": "apple", "$options": "i" } },
+    { "tags": { "$regex": "apple", "$options": "i" } }
+  ],
+  "active": true
 }
 ```
 
-**Refresh Token (7 days):**
-```json
-{
-  "sub": "user@example.com",
-  "iat": 1705312200,
-  "exp": 1705917000,
-  "jti": "unique-token-id",
-  "type": "refresh"
-}
-```
+### Why Regex over Text Index?
 
-## Database Design
+- **Flexibility**: Partial matching works
+- **No index setup**: Works out of the box
+- **Good enough**: For current scale
 
-### User Table
+### Future Improvement
 
-```sql
-CREATE TABLE users (
-                       id UUID PRIMARY KEY,
-                       first_name VARCHAR(50) NOT NULL,
-                       last_name VARCHAR(50) NOT NULL,
-                       email VARCHAR(100) UNIQUE NOT NULL,
-                       password VARCHAR(255) NOT NULL,
-                       phone VARCHAR(15),
-                       role VARCHAR(20) NOT NULL DEFAULT 'CUSTOMER',
-                       email_verified BOOLEAN DEFAULT FALSE,
-                       verification_token VARCHAR(255),
-                       verification_token_expiry TIMESTAMP,
-                       password_reset_token VARCHAR(255),
-                       password_reset_token_expiry TIMESTAMP,
-                       refresh_token TEXT,
-                       enabled BOOLEAN DEFAULT TRUE,
-                       locked BOOLEAN DEFAULT FALSE,
-                       created_at TIMESTAMP,
-                       updated_at TIMESTAMP
-);
-```
+For larger scale, consider:
 
-## Future Architecture (Phase 5+)
+- MongoDB Atlas Search
+- Elasticsearch
+- Algolia
 
-```
-                              ┌─────────────────┐
-                              │  Load Balancer  │
-                              └────────┬────────┘
-                                       │
-                              ┌────────┴────────┐
-                              │   API Gateway   │
-                              │ (Spring Cloud)  │
-                              └────────┬────────┘
-                                       │
-        ┌──────────────────────────────┼──────────────────────────────┐
-        │                              │                              │
-        ▼                              ▼                              ▼
-┌───────────────┐            ┌───────────────┐            ┌───────────────┐
-│ User Service  │            │Product Service│            │ Order Service │
-│   (8081)      │            │    (8082)     │            │    (8084)     │
-└───────┬───────┘            └───────┬───────┘            └───────┬───────┘
-        │                            │                            │
-        ▼                            ▼                            ▼
-┌───────────────┐            ┌───────────────┐            ┌───────────────┐
-│  PostgreSQL   │            │   MongoDB     │            │  PostgreSQL   │
-└───────────────┘            └───────────────┘            └───────────────┘
-        │                            │                            │
-        └────────────────────────────┼────────────────────────────┘
-                                     │
-                              ┌──────┴──────┐
-                              │    Kafka    │
-                              │  (Events)   │
-                              └─────────────┘
-```
+---
 
 ## Error Handling Strategy
 
-```
-Exception Thrown
-       │
-       ▼
-┌─────────────────────────┐
-│ GlobalExceptionHandler  │
-│  @RestControllerAdvice  │
-└───────────┬─────────────┘
-            │
-   ┌────────┴────────┬────────────────┬─────────────┐
-   ▼                 ▼                ▼             ▼
-BadRequest      NotFound       Unauthorized      Generic
-  (400)          (404)           (401)            (500)
-   │                │                │              │
-   └────────────────┴────────────────┴──────────────┘
-                              │
-                              ▼
-                    ┌─────────────────┐
-                    │  ApiResponse    │
-                    │  (Standardized) │
-                    └─────────────────┘
-```
-
-## Configuration Management
+### Global Exception Handler
 
 ```
-application.yml          → Common settings
-application-dev.yml      → Development overrides
-application-prod.yml     → Production overrides (future)
+Exception
+├── ResourceNotFoundException → 404
+├── BadRequestException → 400
+├── UnauthorizedException → 401
+├── AccessDeniedException → 403
+├── DuplicateResourceException → 409
+└── Exception → 500
 ```
 
-## Testing Strategy
+### Standard Error Response
+
+```json
+{
+  "success": false,
+  "message": "Human-readable error message",
+  "data": {
+    "field": "Specific field error"
+  },
+  "timestamp": "2024-12-28T10:30:00Z"
+}
+```
+
+---
+
+## Performance Considerations
+
+### Indexes Created
+
+- `products.slug` - Unique, for URL lookups
+- `products.sku` - Unique, for inventory
+- `products.categoryId` - For category filtering
+- `products.brand` - For brand filtering
+- `products.price` - For price range queries
+- `products.active` - For filtering active products
+- `categories.slug` - For URL lookups
+- `categories.parentId` - For tree queries
+
+### Pagination
+
+All list endpoints support pagination:
+
+- Default page size: 12
+- Maximum page size: 100
+- Sorted by createdAt DESC by default
+
+---
+
+## Future Architecture (Phase 2)
 
 ```
-Unit Tests           → Service layer (Mockito)
-Integration Tests    → Controller layer (MockMvc)
-E2E Tests            → Full application (TestContainers - future)
+                    ┌─────────────┐
+                    │ API Gateway │
+                    └──────┬──────┘
+           ┌───────────────┼───────────────┐
+           ▼               ▼               ▼
+    ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+    │ Auth Service│ │Product Svc  │ │ Order Svc   │
+    └──────┬──────┘ └──────┬──────┘ └──────┬──────┘
+           │               │               │
+           ▼               ▼               ▼
+    ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
+    │ PostgreSQL  │ │  MongoDB    │ │ PostgreSQL  │
+    └─────────────┘ └─────────────┘ └─────────────┘
 ```
-
-## Key Architectural Decisions
-
-| Decision | Rationale |
-|----------|-----------|
-| UUID for IDs | Better for distributed systems, no sequential guessing |
-| JWT stateless | Scalable, no server-side session storage |
-| Refresh tokens | Better UX with short-lived access tokens |
-| BCrypt hashing | Industry standard, adaptive work factor |
-| Lombok | Reduce boilerplate, cleaner code |
-| DTO separation | Security (hide internal structure), flexibility |

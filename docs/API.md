@@ -1,27 +1,25 @@
 # ShopZone API Documentation
 
 ## Base URL
-
 ```
-Development: http://localhost:8080
-Production:  https://api.shopzone.com
+http://localhost:8080/api
 ```
 
 ## Authentication
 
-All protected endpoints require a JWT token in the Authorization header:
-
+All protected endpoints require JWT Bearer token:
 ```
 Authorization: Bearer <access_token>
 ```
 
 ---
 
-## Auth Endpoints
+# Authentication Endpoints
 
-### POST /api/auth/register
-
-Register a new user account.
+## Register User
+```http
+POST /auth/register
+```
 
 **Request Body:**
 ```json
@@ -34,52 +32,31 @@ Register a new user account.
 }
 ```
 
-**Validation Rules:**
-- `firstName`: Required, 2-50 characters
-- `lastName`: Required, 2-50 characters
-- `email`: Required, valid email format
-- `password`: Required, min 8 chars, must contain uppercase, lowercase, digit, special char
-- `phone`: Optional, max 15 characters
-
-**Success Response (201 Created):**
+**Response (201):**
 ```json
 {
   "success": true,
-  "message": "User registered successfully",
+  "message": "Registration successful",
   "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-    "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
+    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "refreshToken": "eyJhbGciOiJIUzI1NiJ9...",
     "tokenType": "Bearer",
     "expiresIn": 86400000,
     "user": {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
+      "id": "uuid",
       "firstName": "John",
       "lastName": "Doe",
       "email": "john@example.com",
-      "phone": "1234567890",
-      "role": "CUSTOMER",
-      "emailVerified": false,
-      "createdAt": "2024-01-15T10:30:00"
+      "role": "CUSTOMER"
     }
-  },
-  "timestamp": "2024-01-15T10:30:00"
+  }
 }
 ```
 
-**Error Response (400 Bad Request):**
-```json
-{
-  "success": false,
-  "message": "Email already registered",
-  "timestamp": "2024-01-15T10:30:00"
-}
+## Login
+```http
+POST /auth/login
 ```
-
----
-
-### POST /api/auth/login
-
-Authenticate user and get tokens.
 
 **Request Body:**
 ```json
@@ -89,256 +66,329 @@ Authenticate user and get tokens.
 }
 ```
 
-**Success Response (200 OK):**
+## Get Current User
+```http
+GET /auth/me
+Authorization: Bearer <token>
+```
+
+---
+
+# Category Endpoints
+
+## List All Categories
+```http
+GET /categories
+```
+
+**Response (200):**
 ```json
 {
   "success": true,
-  "message": "Login successful",
-  "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-    "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
-    "tokenType": "Bearer",
-    "expiresIn": 86400000,
-    "user": {
-      "id": "550e8400-e29b-41d4-a716-446655440000",
-      "firstName": "John",
-      "lastName": "Doe",
-      "email": "john@example.com",
-      "role": "CUSTOMER",
-      "emailVerified": true
+  "message": "Categories retrieved successfully",
+  "data": [
+    {
+      "id": "6951a0011e8dfc98ca885ecf",
+      "name": "Electronics",
+      "description": "Electronic devices",
+      "slug": "electronics",
+      "parentId": null,
+      "level": 0,
+      "active": true,
+      "productCount": 15
     }
-  },
-  "timestamp": "2024-01-15T10:30:00"
+  ]
 }
 ```
 
-**Error Response (401 Unauthorized):**
-```json
-{
-  "success": false,
-  "message": "Invalid email or password",
-  "timestamp": "2024-01-15T10:30:00"
-}
+## Get Category Tree
+```http
+GET /categories/tree
 ```
 
----
-
-### POST /api/auth/refresh
-
-Get a new access token using refresh token.
-
-**Request Body:**
-```json
-{
-  "refreshToken": "eyJhbGciOiJIUzI1NiIs..."
-}
-```
-
-**Success Response (200 OK):**
+**Response (200):**
 ```json
 {
   "success": true,
-  "message": "Token refreshed successfully",
+  "data": [
+    {
+      "id": "...",
+      "name": "Electronics",
+      "children": [
+        {
+          "id": "...",
+          "name": "Smartphones",
+          "children": []
+        },
+        {
+          "id": "...",
+          "name": "Laptops",
+          "children": []
+        }
+      ]
+    }
+  ]
+}
+```
+
+## Get Category by ID
+```http
+GET /categories/{id}
+```
+
+**Response includes breadcrumbs:**
+```json
+{
   "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiIs...",
-    "refreshToken": "eyJhbGciOiJIUzI1NiIs...",
-    "tokenType": "Bearer",
-    "expiresIn": 86400000
-  },
-  "timestamp": "2024-01-15T10:30:00"
+    "id": "...",
+    "name": "Smartphones",
+    "breadcrumbs": [
+      { "id": "...", "name": "Electronics", "slug": "electronics" },
+      { "id": "...", "name": "Smartphones", "slug": "smartphones" }
+    ]
+  }
 }
 ```
 
----
-
-### POST /api/auth/forgot-password
-
-Request a password reset email.
+## Create Category (Admin)
+```http
+POST /categories
+Authorization: Bearer <admin_token>
+```
 
 **Request Body:**
 ```json
 {
-  "email": "john@example.com"
+  "name": "Smartphones",
+  "description": "Mobile phones and accessories",
+  "parentId": "electronics_id_here",
+  "active": true,
+  "displayOrder": 1
 }
 ```
 
-**Success Response (200 OK):**
-```json
-{
-  "success": true,
-  "message": "If the email exists, a password reset link has been sent",
-  "timestamp": "2024-01-15T10:30:00"
-}
+## Update Category (Admin)
+```http
+PUT /categories/{id}
+Authorization: Bearer <admin_token>
 ```
 
-> **Note:** Always returns success to prevent email enumeration attacks.
-
----
-
-### POST /api/auth/reset-password
-
-Reset password using the token from email.
-
-**Request Body:**
-```json
-{
-  "token": "reset-token-from-email",
-  "newPassword": "NewSecurePass123!"
-}
-```
-
-**Success Response (200 OK):**
-```json
-{
-  "success": true,
-  "message": "Password reset successful",
-  "timestamp": "2024-01-15T10:30:00"
-}
+## Delete Category (Admin)
+```http
+DELETE /categories/{id}
+Authorization: Bearer <admin_token>
 ```
 
 ---
 
-### GET /api/auth/verify/{token}
+# Product Endpoints
 
-Verify user's email address.
+## List All Products
+```http
+GET /products?page=0&size=12&sortBy=createdAt&sortDir=desc
+```
 
-**Path Parameter:**
-- `token`: Email verification token
+**Query Parameters:**
+| Param | Type | Default | Description |
+|-------|------|---------|-------------|
+| page | int | 0 | Page number |
+| size | int | 12 | Items per page |
+| sortBy | string | createdAt | Sort field |
+| sortDir | string | desc | asc or desc |
 
-**Success Response (200 OK):**
+**Response (200):**
 ```json
 {
   "success": true,
-  "message": "Email verified successfully",
-  "timestamp": "2024-01-15T10:30:00"
-}
-```
-
----
-
-### GET /api/auth/me
-
-Get current authenticated user's information.
-
-**Headers Required:**
-```
-Authorization: Bearer <access_token>
-```
-
-**Success Response (200 OK):**
-```json
-{
-  "success": true,
-  "message": "User retrieved successfully",
   "data": {
-    "id": "550e8400-e29b-41d4-a716-446655440000",
-    "firstName": "John",
-    "lastName": "Doe",
-    "email": "john@example.com",
-    "phone": "1234567890",
-    "role": "CUSTOMER",
-    "emailVerified": true,
-    "createdAt": "2024-01-15T10:30:00"
-  },
-  "timestamp": "2024-01-15T10:30:00"
+    "content": [
+      {
+        "id": "6951b20c1e8dfc98ca885ed7",
+        "name": "iPhone 15 Pro",
+        "description": "Latest Apple iPhone...",
+        "slug": "iphone-15-pro",
+        "sku": "APPL-IPH15P-256",
+        "price": 999.99,
+        "discountPrice": 949.99,
+        "discountPercentage": 5,
+        "stock": 50,
+        "inStock": true,
+        "categoryId": "...",
+        "categoryName": "Smartphones",
+        "brand": "Apple",
+        "images": ["https://res.cloudinary.com/..."],
+        "tags": ["smartphone", "apple", "iphone"],
+        "active": true,
+        "featured": true,
+        "details": {
+          "weight": "187g",
+          "color": "Natural Titanium"
+        }
+      }
+    ],
+    "page": 0,
+    "size": 12,
+    "totalElements": 25,
+    "totalPages": 3,
+    "first": true,
+    "last": false,
+    "hasNext": true,
+    "hasPrevious": false
+  }
 }
 ```
 
----
-
-### POST /api/auth/logout
-
-Logout current user (invalidates refresh token).
-
-**Headers Required:**
-```
-Authorization: Bearer <access_token>
+## Get Product by ID
+```http
+GET /products/{id}
 ```
 
-**Success Response (200 OK):**
+## Get Product by Slug
+```http
+GET /products/slug/{slug}
+```
+
+Example: `GET /products/slug/iphone-15-pro`
+
+## Search Products
+```http
+GET /products/search?query=apple&page=0&size=12
+```
+
+Searches in: name, description, brand, tags
+
+## Get Featured Products
+```http
+GET /products/featured?page=0&size=12
+```
+
+## Get Products by Category
+```http
+GET /products/category/{categoryId}?page=0&size=12
+```
+
+## Filter by Price Range
+```http
+GET /products/filter/price?minPrice=500&maxPrice=1500&page=0&size=12
+```
+
+## Filter by Brand
+```http
+GET /products/filter/brand?brand=Apple&page=0&size=12
+```
+
+## Create Product (Admin)
+```http
+POST /products
+Authorization: Bearer <admin_token>
+Content-Type: application/json
+```
+
+**Request Body:**
 ```json
 {
-  "success": true,
-  "message": "Logged out successfully",
-  "timestamp": "2024-01-15T10:30:00"
+  "name": "iPhone 15 Pro",
+  "description": "Latest Apple iPhone with A17 Pro chip",
+  "sku": "APPL-IPH15P-256",
+  "price": 999.99,
+  "discountPrice": 949.99,
+  "stock": 50,
+  "categoryId": "smartphones_category_id",
+  "brand": "Apple",
+  "tags": ["smartphone", "apple", "iphone", "5g"],
+  "active": true,
+  "featured": true,
+  "details": {
+    "weight": "187g",
+    "dimensions": "146.6 x 70.6 x 8.25 mm",
+    "color": "Natural Titanium",
+    "material": "Titanium"
+  }
 }
+```
+
+## Update Product (Admin) - Partial Update
+```http
+PUT /products/{id}
+Authorization: Bearer <admin_token>
+```
+
+**Request Body (only fields to update):**
+```json
+{
+  "price": 899.99,
+  "featured": false
+}
+```
+
+Note: categoryId is NOT required for partial updates.
+
+## Delete Product (Admin)
+```http
+DELETE /products/{id}
+Authorization: Bearer <admin_token>
+```
+
+## Upload Product Images (Admin)
+```http
+POST /products/{id}/images
+Authorization: Bearer <admin_token>
+Content-Type: multipart/form-data
+```
+
+**Form Data:**
+- `files`: Image files (JPEG, PNG, WebP, GIF)
+
+## Remove Product Image (Admin)
+```http
+DELETE /products/{id}/images?imageUrl=https://res.cloudinary.com/...
+Authorization: Bearer <admin_token>
 ```
 
 ---
 
-## Error Responses
+# Error Responses
 
-### Validation Error (400)
+## 400 Bad Request
 ```json
 {
   "success": false,
   "message": "Validation failed",
   "data": {
-    "email": "Please provide a valid email address",
-    "password": "Password must be at least 8 characters"
-  },
-  "timestamp": "2024-01-15T10:30:00"
+    "name": "Product name is required",
+    "price": "Price must be greater than 0"
+  }
 }
 ```
 
-### Unauthorized (401)
+## 401 Unauthorized
 ```json
 {
   "success": false,
-  "message": "Invalid or expired token",
-  "timestamp": "2024-01-15T10:30:00"
+  "message": "Invalid or expired token"
 }
 ```
 
-### Forbidden (403)
+## 403 Forbidden
 ```json
 {
   "success": false,
-  "message": "Access denied",
-  "timestamp": "2024-01-15T10:30:00"
+  "message": "Access denied. Admin role required."
 }
 ```
 
-### Not Found (404)
+## 404 Not Found
 ```json
 {
   "success": false,
-  "message": "Resource not found",
-  "timestamp": "2024-01-15T10:30:00"
+  "message": "Product not found with ID: xyz"
 }
 ```
 
-### Internal Server Error (500)
+## 409 Conflict
 ```json
 {
   "success": false,
-  "message": "An unexpected error occurred. Please try again later.",
-  "timestamp": "2024-01-15T10:30:00"
-}
-```
-
----
-
-## Rate Limiting
-
-Currently not implemented. Will be added in Phase 5 with API Gateway.
-
-## Pagination
-
-For list endpoints (coming in Phase 2):
-
-```
-GET /api/products?page=0&size=20&sort=createdAt,desc
-```
-
-Response includes:
-```json
-{
-  "content": [],
-  "page": 0,
-  "size": 20,
-  "totalElements": 100,
-  "totalPages": 5,
-  "last": false
+  "message": "Product with SKU 'APPL-IPH15P-256' already exists"
 }
 ```
