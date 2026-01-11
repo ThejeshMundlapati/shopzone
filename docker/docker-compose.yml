@@ -1,0 +1,79 @@
+# docker/docker-compose.yml
+# Week 3 - PostgreSQL + MongoDB + Redis
+
+services:
+  # ==================== PostgreSQL - User/Auth data (Week 1) ====================
+  postgres:
+    image: postgres:15-alpine
+    container_name: shopzone-postgres
+    environment:
+      POSTGRES_DB: shopzone
+      POSTGRES_USER: shopzone_admin
+      POSTGRES_PASSWORD: shopzone_secret_2024
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - shopzone-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shopzone_admin -d shopzone"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== MongoDB - Product/Category data (Week 2) ====================
+  mongodb:
+    image: mongo:7.0
+    container_name: shopzone-mongodb
+    # No auth for local development (simplified from Week 2)
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - shopzone-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== Redis - Cart & Session data (Week 3) ====================
+  redis:
+    image: redis:7-alpine
+    container_name: shopzone-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - shopzone-network
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ==================== Redis Commander - GUI for Redis ====================
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: shopzone-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    networks:
+      - shopzone-network
+    depends_on:
+      - redis
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+
+networks:
+  shopzone-network:
+    driver: bridge
