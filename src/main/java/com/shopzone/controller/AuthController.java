@@ -6,12 +6,13 @@ import com.shopzone.dto.response.AuthResponse;
 import com.shopzone.dto.response.UserResponse;
 import com.shopzone.exception.ResourceNotFoundException;
 import com.shopzone.model.User;
-import com.shopzone.repository.UserRepository;
+import com.shopzone.repository.jpa.UserRepository;
 import com.shopzone.service.AuthService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirements;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.slf4j.Logger;
@@ -53,6 +54,7 @@ public class AuthController {
       )
   })
   @PostMapping("/register")
+  @SecurityRequirements()
   public ResponseEntity<ApiResponse<AuthResponse>> register(
       @Valid @RequestBody RegisterRequest request) {
     log.info("Registration request for email: {}", request.getEmail());
@@ -77,6 +79,7 @@ public class AuthController {
       )
   })
   @PostMapping("/login")
+  @SecurityRequirements()
   public ResponseEntity<ApiResponse<AuthResponse>> login(
       @Valid @RequestBody LoginRequest request) {
     log.info("Login request for email: {}", request.getEmail());
@@ -99,6 +102,7 @@ public class AuthController {
       )
   })
   @PostMapping("/refresh")
+  @SecurityRequirements()
   public ResponseEntity<ApiResponse<AuthResponse>> refreshToken(
       @Valid @RequestBody RefreshTokenRequest request) {
     log.info("Token refresh request");
@@ -117,6 +121,7 @@ public class AuthController {
       )
   })
   @PostMapping("/forgot-password")
+  @SecurityRequirements()
   public ResponseEntity<ApiResponse<Void>> forgotPassword(
       @Valid @RequestBody ForgotPasswordRequest request) {
     log.info("Password reset request for email: {}", request.getEmail());
@@ -141,6 +146,7 @@ public class AuthController {
       )
   })
   @PostMapping("/reset-password")
+  @SecurityRequirements()
   public ResponseEntity<ApiResponse<Void>> resetPassword(
       @Valid @RequestBody ResetPasswordRequest request) {
     log.info("Password reset with token");
@@ -163,6 +169,7 @@ public class AuthController {
       )
   })
   @GetMapping("/verify/{token}")
+  @SecurityRequirements()
   public ResponseEntity<ApiResponse<Void>> verifyEmail(@PathVariable String token) {
     log.info("Email verification request");
     authService.verifyEmail(token);
