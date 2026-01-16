@@ -3,7 +3,7 @@ package com.shopzone.service;
 import com.shopzone.dto.response.UserResponse;
 import com.shopzone.exception.ResourceNotFoundException;
 import com.shopzone.model.User;
-import com.shopzone.repository.UserRepository;
+import com.shopzone.repository.jpa.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.security.core.userdetails.UserDetails;
