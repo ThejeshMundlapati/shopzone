@@ -1,361 +1,304 @@
-# ShopZone Architecture Documentation
+# ShopZone Architecture
 
 ## System Overview
 
-ShopZone uses a **polyglot persistence** architecture with multiple specialized databases for different data types.
+ShopZone is a polyglot persistence e-commerce platform using the best database for each data type.
 
 ```
-                                    ┌─────────────────┐
-                                    │   Cloudinary    │
-                                    │  (Image CDN)    │
-                                    └────────▲────────┘
-                                             │
-┌──────────┐      ┌──────────────────────────┴───────────────────────────┐
-│  Client  │────▶ │                   Spring Boot API                    │
-└──────────┘      │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐   │
-                  │  │   Auth      │  │  Product    │  │  Category   │   │
-                  │  │  Service    │  │  Service    │  │  Service    │   │
-                  │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘   │
-                  └─────────┼────────────────┼────────────────┼──────────┘
-                            │                │                │
-                            ▼                └───────┬────────┘
-                    ┌──────────────┐                 ▼
-                    │  PostgreSQL  │         ┌──────────────┐
-                    │   (Users)    │         │   MongoDB    │
-                    └──────────────┘         │  (Products)  │
-                                             └──────────────┘
-```
-
----
-
-## Database Strategy
-
-### Why Two Databases?
-
-| Database | Use Case | Reason |
-|----------|----------|--------|
-| **PostgreSQL** | Users, Orders, Transactions | ACID compliance, relational integrity, secure transactions |
-| **MongoDB** | Products, Categories | Flexible schema, nested documents, fast catalog reads |
-
-### PostgreSQL Schema (Users)
-
-```sql
-users
-├── id (UUID, PK)
-├── email (UNIQUE)
-├── password (BCrypt)
-├── first_name
-├── last_name
-├── phone
-├── role (ENUM: CUSTOMER, ADMIN)
-├── email_verified
-├── verification_token
-├── reset_token
-├── reset_token_expiry
-├── created_at
-└── updated_at
-```
-
-### MongoDB Collections
-
-#### products
-
-```javascript
-{
-  _id: ObjectId,
-  name: String,
-  description: String,
-  slug: String (indexed, unique),
-  sku: String (indexed, unique),
-  price: Decimal128,
-  discountPrice: Decimal128,
-  discountPercentage: Number,
-  stock: Number,
-  categoryId: String (indexed),
-  brand: String (indexed),
-  images: [String],
-  tags: [String],
-  active: Boolean (indexed),
-  featured: Boolean (indexed),
-  details: {
-    weight: String,
-    dimensions: String,
-    color: String,
-    size: String,
-    material: String,
-    specifications: Object
-  },
-  createdAt: Date,
-  updatedAt: Date
-}
-
-// Indexes
-{ slug: 1 }
-{ sku: 1 }
-{ categoryId: 1, active: 1 }
-{ brand: 1, active: 1 }
-{ price: 1, active: 1 }
-{ featured: 1, active: 1 }
-{ name: "text", description: "text", brand: "text" }
-```
-
-#### categories
-
-```javascript
-{
-  _id: ObjectId,
-  name: String,
-  description: String,
-  slug: String (indexed, unique),
-  parentId: String (indexed),
-  level: Number,
-  path: String,
-  imageUrl: String,
-  active: Boolean,
-  displayOrder: Number,
-  createdAt: Date,
-  updatedAt: Date
-}
-
-// Indexes
-{ slug: 1 }
-{ parentId: 1, active: 1 }
-{ level: 1 }
+┌─────────────────────────────────────────────────────────────────────────┐
+│                              CLIENTS                                    │
+│                                                                         │
+│    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐             │
+│    │  Swagger UI  │    │   React App  │    │  Mobile App  │             │
+│    │   (Testing)  │    │   (Future)   │    │   (Future)   │             │
+│    └──────────────┘    └──────────────┘    └──────────────┘             │
+│                                                                         │
+└────────────────────────────────┬────────────────────────────────────────┘
+                                 │
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────────┐
+│                         SPRING BOOT APPLICATION                         │
+│                                                                         │
+│  ┌────────────────────────────────────────────────────────────────────┐ │
+│  │                       SECURITY LAYER                               │ │
+│  │                                                                    │ │
+│  │   JWT Authentication Filter → Security Config → Role-Based Access  │ │
+│  │                                                                    │ │
+│  └────────────────────────────────────────────────────────────────────┘ │
+│                                                                         │
+│  ┌────────────────────────────────────────────────────────────────────┐ │
+│  │                      CONTROLLER LAYER                              │ │
+│  │                                                                    │ │
+│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │ │
+│  │  │  Auth   │ │ Product │ │Category │ │  Cart   │ │ Address │       │ │
+│  │  │   API   │ │   API   │ │   API   │ │   API   │ │   API   │       │ │
+│  │  └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘       │ │
+│  │       │           │           │           │           │            │ │
+│  └───────┼───────────┼───────────┼───────────┼───────────┼────────────┘ │
+│          │           │           │           │           │              │
+│  ┌───────┼───────────┼───────────┼───────────┼───────────┼────────────┐ │
+│  │       ▼           ▼           ▼           ▼           ▼            │ │
+│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │ │
+│  │  │  Auth   │ │ Product │ │Category │ │  Cart   │ │ Address │       │ │
+│  │  │ Service │ │ Service │ │ Service │ │ Service │ │ Service │       │ │
+│  │  └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘       │ │
+│  │       │           │           │           │           │            │ │
+│  │                   SERVICE LAYER                                    │ │
+│  └───────┼───────────┼───────────┼───────────┼───────────┼────────────┘ │
+│          │           │           │           │           │              │
+│  ┌───────┼───────────┼───────────┼───────────┼───────────┼────────────┐ │
+│  │       ▼           ▼           ▼           ▼           ▼            │ │
+│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │ │
+│  │  │  User   │ │ Product │ │Category │ │  Cart   │ │ Address │       │ │
+│  │  │  Repo   │ │  Repo   │ │  Repo   │ │  Repo   │ │  Repo   │       │ │
+│  │  └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘       │ │
+│  │       │           │           │           │           │            │ │
+│  │              REPOSITORY LAYER (Data Access)                        │ │
+│  └───────┼───────────┼───────────┼───────────┼───────────┼────────────┘ │
+│          │           │           │           │           │              │
+└──────────┼───────────┼───────────┼───────────┼───────────┼──────────────┘
+           │           │           │           │           │
+           ▼           ▼           ▼           ▼           ▼
+┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
+│  PostgreSQL  │ │   MongoDB    │ │    Redis     │ │  Cloudinary  │
+│              │ │              │ │              │ │              │
+│  • Users     │ │  • Products  │ │  • Cart      │ │  • Images    │
+│  • Addresses │ │  • Categories│ │  • Wishlist  │ │              │
+│              │ │              │ │  • Sessions  │ │              │
+│  (JPA)       │ │  (MongoDB)   │ │  (Redis)     │ │  (HTTP API)  │
+└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
 ```
 
 ---
 
-## Application Layers
+## Database Selection Rationale
 
+### PostgreSQL (Relational)
+**Used for:** Users, Addresses, Orders (future)
+
+**Why:**
+- ACID transactions for financial data
+- Complex relationships (user → addresses → orders)
+- Strong consistency requirements
+- Mature, battle-tested
+
+### MongoDB (Document Store)
+**Used for:** Products, Categories
+
+**Why:**
+- Flexible schema for varying product attributes
+- Nested documents (specifications, variants)
+- Fast catalog reads
+- Easy to add new product fields
+
+### Redis (In-Memory Cache)
+**Used for:** Cart, Wishlist, Sessions
+
+**Why:**
+- Lightning-fast reads/writes
+- Built-in TTL for cart expiration
+- Session data doesn't need complex queries
+- Scales horizontally
+- Perfect for temporary, high-frequency data
+
+---
+
+## Data Flow Examples
+
+### Add to Cart Flow
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Controller Layer                       │
-│  - REST endpoints                                           │
-│  - Request validation                                       │
-│  - Response formatting                                      │
-│  - @PreAuthorize for security                               │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                       Service Layer                         │
-│  - Business logic                                           │
-│  - Transaction management                                   │
-│  - DTO mapping                                              │
-│  - Validation rules                                         │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                      Repository Layer                       │
-│  - JpaRepository (PostgreSQL)                               │
-│  - MongoRepository (MongoDB)                                │
-│  - Custom queries with @Query                               │
-└─────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────┐
-│                       Data Layer                            │
-│  - PostgreSQL (Users, Auth)                                 │
-│  - MongoDB (Products, Categories)                           │
-│  - Cloudinary (Images)                                      │
-└─────────────────────────────────────────────────────────────┘
+1. User clicks "Add to Cart"
+         │
+         ▼
+2. CartController receives request
+         │
+         ▼
+3. CartService validates:
+   • Product exists (MongoDB query)
+   • Stock available
+   • Quantity limits
+         │
+         ▼
+4. CartRepository saves to Redis
+   Key: "cart:{userId}"
+   TTL: 30 days
+         │
+         ▼
+5. Response with updated cart
+```
+
+### Checkout Flow (Future Week 4)
+```
+1. User clicks "Checkout"
+         │
+         ▼
+2. Validate cart (Redis)
+         │
+         ▼
+3. Get shipping address (PostgreSQL)
+         │
+         ▼
+4. Reserve stock (MongoDB)
+         │
+         ▼
+5. Create order (PostgreSQL)
+         │
+         ▼
+6. Clear cart (Redis)
 ```
 
 ---
 
 ## Security Architecture
 
-### Authentication Flow
-
 ```
-1. User Login
-   └─▶ AuthController.login()
-       └─▶ AuthService.authenticate()
-           ├─▶ Validate credentials
-           ├─▶ Generate Access Token (24h)
-           ├─▶ Generate Refresh Token (7d)
-           └─▶ Return tokens
-
-2. Protected Request
-   └─▶ JwtAuthenticationFilter
-       ├─▶ Extract token from header
-       ├─▶ Validate token signature
-       ├─▶ Check expiration
-       ├─▶ Load user details
-       └─▶ Set SecurityContext
-```
-
-### Endpoint Security Matrix
-
-| Endpoint Pattern | Public | Customer | Admin |
-|-----------------|--------|----------|-------|
-| POST /api/auth/** | ✅ | ✅ | ✅ |
-| GET /api/products/** | ✅ | ✅ | ✅ |
-| GET /api/categories/** | ✅ | ✅ | ✅ |
-| POST /api/products | ❌ | ❌ | ✅ |
-| PUT /api/products/* | ❌ | ❌ | ✅ |
-| DELETE /api/products/* | ❌ | ❌ | ✅ |
-| POST /api/categories | ❌ | ❌ | ✅ |
-| PUT /api/categories/* | ❌ | ❌ | ✅ |
-| DELETE /api/categories/* | ❌ | ❌ | ✅ |
-
----
-
-## Image Storage Architecture
-
-### Why Cloudinary?
-
-- **Free tier**: 25GB storage, 25GB bandwidth/month
-- **CDN**: Global content delivery
-- **Transformations**: Resize, crop, optimize on-the-fly
-- **No server storage**: Offload storage to cloud
-
-### Upload Flow
-
-```
-1. Client uploads image
-   └─▶ ProductController.uploadImages()
-       └─▶ CloudinaryService.uploadImage()
-           ├─▶ Validate file type & size
-           ├─▶ Upload to Cloudinary
-           │   └─▶ Folder: products/{product_id}
-           ├─▶ Get secure URL
-           └─▶ Add URL to product.images[]
-
-2. Image URL structure
-   https://res.cloudinary.com/{cloud}/image/upload/v{version}/{folder}/{public_id}.{format}
+┌─────────────────────────────────────────────────────────────────┐
+│                        HTTP REQUEST                             │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                   JWT Authentication Filter                     │
+│                                                                 │
+│   1. Extract token from Authorization header                    │
+│   2. Validate token signature and expiration                    │
+│   3. Load user details from database                            │
+│   4. Set authentication context                                 │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                     Security Filter Chain                       │
+│                                                                 │
+│   PUBLIC ENDPOINTS:                                             │
+│   • /api/auth/register, /login, /refresh                        │
+│   • GET /api/products/**, /api/categories/**                    │
+│   • /swagger-ui/**                                              │
+│                                                                 │
+│   AUTHENTICATED:                                                │
+│   • /api/cart/**                                                │
+│   • /api/wishlist/**                                            │
+│   • /api/addresses/**                                           │
+│   • /api/auth/me                                                │
+│                                                                 │
+│   ADMIN ONLY:                                                   │
+│   • POST/PUT/DELETE /api/products/**                            │
+│   • POST/PUT/DELETE /api/categories/**                          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Category Hierarchy Design
-
-### Tree Structure
+## Package Structure
 
 ```
-Electronics (level: 0, path: "/electronics")
-├── Smartphones (level: 1, path: "/electronics/smartphones")
-│   ├── Android (level: 2, path: "/electronics/smartphones/android")
-│   └── iPhone (level: 2, path: "/electronics/smartphones/iphone")
-├── Laptops (level: 1, path: "/electronics/laptops")
-└── Headphones (level: 1, path: "/electronics/headphones")
-```
-
-### Breadcrumb Generation
-
-```java
-// For category: iPhone
-breadcrumbs = [
-  { name: "Electronics", slug: "electronics" },
-  { name: "Smartphones", slug: "smartphones" },
-  { name: "iPhone", slug: "iphone" }
-]
-```
-
----
-
-## Search Implementation
-
-### Search Strategy
-
-Uses MongoDB regex for flexible matching:
-
-```javascript
-// Search query
-{
-  "$or": [
-    { "name": { "$regex": "apple", "$options": "i" } },
-    { "description": { "$regex": "apple", "$options": "i" } },
-    { "brand": { "$regex": "apple", "$options": "i" } },
-    { "tags": { "$regex": "apple", "$options": "i" } }
-  ],
-  "active": true
-}
-```
-
-### Why Regex over Text Index?
-
-- **Flexibility**: Partial matching works
-- **No index setup**: Works out of the box
-- **Good enough**: For current scale
-
-### Future Improvement
-
-For larger scale, consider:
-
-- MongoDB Atlas Search
-- Elasticsearch
-- Algolia
-
----
-
-## Error Handling Strategy
-
-### Global Exception Handler
-
-```
-Exception
-├── ResourceNotFoundException → 404
-├── BadRequestException → 400
-├── UnauthorizedException → 401
-├── AccessDeniedException → 403
-├── DuplicateResourceException → 409
-└── Exception → 500
-```
-
-### Standard Error Response
-
-```json
-{
-  "success": false,
-  "message": "Human-readable error message",
-  "data": {
-    "field": "Specific field error"
-  },
-  "timestamp": "2024-12-28T10:30:00Z"
-}
+com.shopzone/
+├── config/           # Configuration classes
+│   ├── SecurityConfig.java      # Security rules
+│   ├── RedisConfig.java         # Redis template
+│   ├── MongoConfig.java         # MongoDB auditing
+│   ├── CloudinaryConfig.java    # Image storage
+│   ├── JwtConfig.java           # JWT properties
+│   └── OpenApiConfig.java       # Swagger setup
+│
+├── controller/       # REST endpoints (thin layer)
+│   ├── AuthController.java
+│   ├── ProductController.java
+│   ├── CategoryController.java
+│   ├── CartController.java
+│   ├── WishlistController.java
+│   └── AddressController.java
+│
+├── service/          # Business logic (thick layer)
+│   ├── AuthService.java
+│   ├── ProductService.java
+│   ├── CategoryService.java
+│   ├── CartService.java
+│   ├── WishlistService.java
+│   ├── AddressService.java
+│   ├── JwtService.java
+│   └── CloudinaryService.java
+│
+├── repository/       # Data access
+│   ├── UserRepository.java        (JPA)
+│   ├── AddressRepository.java     (JPA)
+│   ├── ProductRepository.java     (MongoDB)
+│   ├── CategoryRepository.java    (MongoDB)
+│   ├── CartRepository.java        (Redis - manual)
+│   └── WishlistRepository.java    (Redis - manual)
+│
+├── model/            # Domain entities
+│   ├── User.java                  (JPA Entity)
+│   ├── Address.java               (JPA Entity)
+│   ├── Product.java               (MongoDB Document)
+│   ├── Category.java              (MongoDB Document)
+│   ├── Cart.java                  (Redis POJO)
+│   ├── CartItem.java              (Redis POJO)
+│   ├── Wishlist.java              (Redis POJO)
+│   └── WishlistItem.java          (Redis POJO)
+│
+├── dto/              # Data Transfer Objects
+│   ├── request/      # Input validation
+│   └── response/     # Output formatting
+│
+├── exception/        # Error handling
+│   ├── GlobalExceptionHandler.java
+│   ├── ResourceNotFoundException.java
+│   ├── BadRequestException.java
+│   └── UnauthorizedException.java
+│
+└── security/         # Security components
+    └── JwtAuthenticationFilter.java
 ```
 
 ---
 
-## Performance Considerations
+## Key Design Patterns
 
-### Indexes Created
+### 1. Repository Pattern
+- Abstracts data access
+- Different implementations per database
+- Easy to test with mocks
 
-- `products.slug` - Unique, for URL lookups
-- `products.sku` - Unique, for inventory
-- `products.categoryId` - For category filtering
-- `products.brand` - For brand filtering
-- `products.price` - For price range queries
-- `products.active` - For filtering active products
-- `categories.slug` - For URL lookups
-- `categories.parentId` - For tree queries
+### 2. DTO Pattern
+- Separates internal models from API contracts
+- Request DTOs for validation
+- Response DTOs for formatting
 
-### Pagination
+### 3. Service Layer Pattern
+- Business logic centralized
+- Controllers are thin
+- Services can call other services
 
-All list endpoints support pagination:
-
-- Default page size: 12
-- Maximum page size: 100
-- Sorted by createdAt DESC by default
+### 4. Factory Method Pattern
+- `fromEntity()` methods in DTOs
+- Clean entity-to-DTO conversion
 
 ---
 
-## Future Architecture (Phase 2)
+## Future Architecture (Microservices)
 
 ```
-                    ┌─────────────┐
-                    │ API Gateway │
-                    └──────┬──────┘
-           ┌───────────────┼───────────────┐
-           ▼               ▼               ▼
-    ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-    │ Auth Service│ │Product Svc  │ │ Order Svc   │
-    └──────┬──────┘ └──────┬──────┘ └──────┬──────┘
-           │               │               │
-           ▼               ▼               ▼
-    ┌─────────────┐ ┌─────────────┐ ┌─────────────┐
-    │ PostgreSQL  │ │  MongoDB    │ │ PostgreSQL  │
-    └─────────────┘ └─────────────┘ └─────────────┘
+Phase 5 Architecture:
+┌─────────────────────────────────────────────────────────────────┐
+│                        API Gateway                              │
+│                    (Spring Cloud Gateway)                       │
+└─────────────────────────────────────────────────────────────────┘
+                              │
+       ┌──────────┬───────────┼───────────┬──────────┐
+       ▼          ▼           ▼           ▼          ▼
+┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐
+│   User   │ │ Product  │ │   Cart   │ │  Order   │ │ Payment  │
+│ Service  │ │ Service  │ │ Service  │ │ Service  │ │ Service  │
+└──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘
+     │            │            │            │            │
+     │            │            │            │            │
+     └────────────┴────────────┴────────────┴────────────┘
+                              │
+                    ┌─────────┴─────────┐
+                    │   Apache Kafka    │
+                    │   (Event Bus)     │
+                    └───────────────────┘
 ```
