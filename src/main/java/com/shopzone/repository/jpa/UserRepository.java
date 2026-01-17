@@ -1,4 +1,4 @@
-package com.shopzone.repository;
+package com.shopzone.repository.jpa;
 
 import com.shopzone.model.User;
 import org.springframework.data.jpa.repository.JpaRepository;

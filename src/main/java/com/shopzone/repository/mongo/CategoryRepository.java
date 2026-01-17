@@ -1,4 +1,4 @@
-package com.shopzone.repository;
+package com.shopzone.repository.mongo;
 
 import com.shopzone.model.Category;
 import org.springframework.data.mongodb.repository.MongoRepository;

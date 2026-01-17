@@ -1,4 +1,4 @@
-package com.shopzone.repository;
+package com.shopzone.repository.mongo;
 
 import com.shopzone.model.Product;
 import org.springframework.data.domain.Page;
@@ -13,6 +13,8 @@ import java.util.Optional;
 
 @Repository
 public interface ProductRepository extends MongoRepository<Product, String> {
+//new
+  Optional<Product> findByIdAndActiveTrue(String id);
 
 
   Optional<Product> findBySlug(String slug);

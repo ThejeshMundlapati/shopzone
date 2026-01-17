@@ -7,7 +7,7 @@ import com.shopzone.exception.BadRequestException;
 import com.shopzone.exception.UnauthorizedException;
 import com.shopzone.model.Role;
 import com.shopzone.model.User;
-import com.shopzone.repository.UserRepository;
+import com.shopzone.repository.jpa.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;

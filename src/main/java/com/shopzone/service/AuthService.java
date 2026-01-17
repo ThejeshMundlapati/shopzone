@@ -7,7 +7,7 @@ import com.shopzone.exception.BadRequestException;
 import com.shopzone.exception.ResourceNotFoundException;
 import com.shopzone.exception.UnauthorizedException;
 import com.shopzone.model.User;
-import com.shopzone.repository.UserRepository;
+import com.shopzone.repository.jpa.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Lazy;
@@ -43,15 +43,12 @@ public class AuthService {
   }
 
   public AuthResponse register(RegisterRequest request) {
-    // Check if email already exists
     if (userRepository.existsByEmail(request.getEmail().toLowerCase())) {
       throw new BadRequestException("Email already registered");
     }
 
-    // Generate verification token
     String verificationToken = UUID.randomUUID().toString();
 
-    // Build user entity
     User user = User.builder()
         .firstName(request.getFirstName().trim())
         .lastName(request.getLastName().trim())
@@ -65,11 +62,9 @@ public class AuthService {
     User savedUser = userRepository.save(user);
     log.info("User registered successfully: {}", savedUser.getEmail());
 
-    // Generate tokens
     String accessToken = jwtService.generateToken(savedUser);
     String refreshToken = jwtService.generateRefreshToken(savedUser);
 
-    // Save refresh token
     savedUser.setRefreshToken(refreshToken);
     userRepository.save(savedUser);
 
@@ -106,7 +101,6 @@ public class AuthService {
     String accessToken = jwtService.generateToken(user);
     String refreshToken = jwtService.generateRefreshToken(user);
 
-    // Update refresh token
     user.setRefreshToken(refreshToken);
     userRepository.save(user);
 
@@ -123,7 +117,6 @@ public class AuthService {
   public AuthResponse refreshToken(RefreshTokenRequest request) {
     String refreshToken = request.getRefreshToken();
 
-    // Validate refresh token
     if (!jwtService.validateToken(refreshToken)) {
       throw new UnauthorizedException("Invalid or expired refresh token");
     }
@@ -132,16 +125,13 @@ public class AuthService {
     User user = userRepository.findByEmail(email)
         .orElseThrow(() -> new UnauthorizedException("User not found"));
 
-    // Verify the refresh token matches
     if (!refreshToken.equals(user.getRefreshToken())) {
       throw new UnauthorizedException("Invalid refresh token");
     }
 
-    // Generate new tokens
     String newAccessToken = jwtService.generateToken(user);
     String newRefreshToken = jwtService.generateRefreshToken(user);
 
-    // Update refresh token
     user.setRefreshToken(newRefreshToken);
     userRepository.save(user);
 
@@ -159,13 +149,11 @@ public class AuthService {
     User user = userRepository.findByEmail(request.getEmail().toLowerCase())
         .orElse(null);
 
-    // Always return success to prevent email enumeration
     if (user == null) {
       log.warn("Password reset requested for non-existent email: {}", request.getEmail());
       return;
     }
 
-    // Generate reset token
     String resetToken = UUID.randomUUID().toString();
     user.setPasswordResetToken(resetToken);
     user.setPasswordResetTokenExpiry(LocalDateTime.now().plusHours(1));
@@ -186,7 +174,7 @@ public class AuthService {
     user.setPassword(passwordEncoder.encode(request.getNewPassword()));
     user.setPasswordResetToken(null);
     user.setPasswordResetTokenExpiry(null);
-    user.setRefreshToken(null); // Invalidate all sessions
+    user.setRefreshToken(null);
     userRepository.save(user);
 
     log.info("Password reset successfully for user: {}", user.getEmail());

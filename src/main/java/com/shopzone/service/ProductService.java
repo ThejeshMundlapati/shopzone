@@ -9,8 +9,8 @@ import com.shopzone.exception.BadRequestException;
 import com.shopzone.exception.ResourceNotFoundException;
 import com.shopzone.model.Category;
 import com.shopzone.model.Product;
-import com.shopzone.repository.CategoryRepository;
-import com.shopzone.repository.ProductRepository;
+import com.shopzone.repository.mongo.CategoryRepository;
+import com.shopzone.repository.mongo.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
@@ -39,25 +39,21 @@ public class ProductService {
   public ProductResponse createProduct(ProductRequest request) {
     log.info("Creating product: {}", request.getName());
 
-    // Validate category exists
     Category category = categoryRepository.findById(request.getCategoryId())
         .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
 
-    // Generate slug if not provided
     String slug = request.getSlug();
     if (slug == null || slug.isBlank()) {
       slug = slugify.slugify(request.getName());
     }
     slug = ensureUniqueSlug(slug, null);
 
-    // Validate SKU uniqueness if provided
     if (request.getSku() != null && !request.getSku().isBlank()) {
       if (productRepository.existsBySku(request.getSku())) {
         throw new BadRequestException("Product with SKU '" + request.getSku() + "' already exists");
       }
     }
 
-    // Calculate discount percentage
     Integer discountPercentage = calculateDiscountPercentage(request.getPrice(), request.getDiscountPrice());
 
     Product product = Product.builder()
@@ -114,7 +110,6 @@ public class ProductService {
   public PagedResponse<ProductResponse> getProductsByCategory(String categoryId, int page, int size) {
     log.info("Fetching products by category: {}", categoryId);
 
-    // Verify category exists
     categoryRepository.findById(categoryId)
         .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
 
@@ -159,18 +154,15 @@ public class ProductService {
     Product product = productRepository.findById(id)
         .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
 
-    // Validate category if changed
     Category category = categoryRepository.findById(request.getCategoryId())
         .orElseThrow(() -> new ResourceNotFoundException("Category not found"));
 
-    // Update slug if name changed
     String newSlug = request.getSlug();
     if (newSlug == null || newSlug.isBlank()) {
       newSlug = slugify.slugify(request.getName());
     }
     newSlug = ensureUniqueSlug(newSlug, id);
 
-    // Validate SKU uniqueness if changed
     if (request.getSku() != null && !request.getSku().isBlank()) {
       productRepository.findBySku(request.getSku())
           .ifPresent(existing -> {
@@ -180,7 +172,6 @@ public class ProductService {
           });
     }
 
-    // Calculate discount percentage
     Integer discountPercentage = calculateDiscountPercentage(request.getPrice(), request.getDiscountPrice());
 
     product.setName(request.getName());
@@ -235,7 +226,6 @@ public class ProductService {
 
     if (request.getPrice() != null) {
       product.setPrice(request.getPrice());
-      // Recalculate discount percentage
       BigDecimal discountPrice = request.getDiscountPrice() != null
           ? request.getDiscountPrice()
           : product.getDiscountPrice();
@@ -293,7 +283,6 @@ public class ProductService {
     Product product = productRepository.findById(id)
         .orElseThrow(() -> new ResourceNotFoundException("Product not found with ID: " + id));
 
-    // Delete images from Cloudinary
     if (product.getImages() != null && !product.getImages().isEmpty()) {
       cloudinaryService.deleteImages(product.getImages());
     }
