@@ -6,362 +6,408 @@ http://localhost:8080/api
 ```
 
 ## Authentication
-
-All protected endpoints require JWT Bearer token:
+All protected endpoints require a JWT token in the Authorization header:
 ```
-Authorization: Bearer <access_token>
+Authorization: Bearer <your_token>
 ```
 
 ---
 
-# Authentication Endpoints
+## 🔐 Authentication APIs
 
-## Register User
+### Register User
 ```http
-POST /auth/register
+POST /api/auth/register
 ```
 
 **Request Body:**
 ```json
 {
+  "email": "user@example.com",
+  "password": "SecurePass123!",
   "firstName": "John",
   "lastName": "Doe",
-  "email": "john@example.com",
-  "password": "SecurePass123!",
-  "phone": "1234567890"
+  "phone": "+1234567890"
 }
 ```
 
-**Response (201):**
+**Response:** `201 Created`
 ```json
 {
   "success": true,
-  "message": "Registration successful",
+  "message": "User registered successfully",
   "data": {
-    "accessToken": "eyJhbGciOiJIUzI1NiJ9...",
-    "refreshToken": "eyJhbGciOiJIUzI1NiJ9...",
+    "accessToken": "eyJhbGc...",
+    "refreshToken": "eyJhbGc...",
     "tokenType": "Bearer",
-    "expiresIn": 86400000,
-    "user": {
-      "id": "uuid",
-      "firstName": "John",
-      "lastName": "Doe",
-      "email": "john@example.com",
-      "role": "CUSTOMER"
-    }
+    "expiresIn": 86400000
   }
 }
 ```
 
-## Login
+### Login
 ```http
-POST /auth/login
+POST /api/auth/login
 ```
 
 **Request Body:**
 ```json
 {
-  "email": "john@example.com",
+  "email": "user@example.com",
   "password": "SecurePass123!"
 }
 ```
 
-## Get Current User
+### Get Current User 🔒
 ```http
-GET /auth/me
-Authorization: Bearer <token>
+GET /api/auth/me
 ```
 
 ---
 
-# Category Endpoints
+## 📦 Product APIs
 
-## List All Categories
+### List Products (Public)
 ```http
-GET /categories
-```
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "message": "Categories retrieved successfully",
-  "data": [
-    {
-      "id": "6951a0011e8dfc98ca885ecf",
-      "name": "Electronics",
-      "description": "Electronic devices",
-      "slug": "electronics",
-      "parentId": null,
-      "level": 0,
-      "active": true,
-      "productCount": 15
-    }
-  ]
-}
-```
-
-## Get Category Tree
-```http
-GET /categories/tree
-```
-
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": [
-    {
-      "id": "...",
-      "name": "Electronics",
-      "children": [
-        {
-          "id": "...",
-          "name": "Smartphones",
-          "children": []
-        },
-        {
-          "id": "...",
-          "name": "Laptops",
-          "children": []
-        }
-      ]
-    }
-  ]
-}
-```
-
-## Get Category by ID
-```http
-GET /categories/{id}
-```
-
-**Response includes breadcrumbs:**
-```json
-{
-  "data": {
-    "id": "...",
-    "name": "Smartphones",
-    "breadcrumbs": [
-      { "id": "...", "name": "Electronics", "slug": "electronics" },
-      { "id": "...", "name": "Smartphones", "slug": "smartphones" }
-    ]
-  }
-}
-```
-
-## Create Category (Admin)
-```http
-POST /categories
-Authorization: Bearer <admin_token>
-```
-
-**Request Body:**
-```json
-{
-  "name": "Smartphones",
-  "description": "Mobile phones and accessories",
-  "parentId": "electronics_id_here",
-  "active": true,
-  "displayOrder": 1
-}
-```
-
-## Update Category (Admin)
-```http
-PUT /categories/{id}
-Authorization: Bearer <admin_token>
-```
-
-## Delete Category (Admin)
-```http
-DELETE /categories/{id}
-Authorization: Bearer <admin_token>
-```
-
----
-
-# Product Endpoints
-
-## List All Products
-```http
-GET /products?page=0&size=12&sortBy=createdAt&sortDir=desc
+GET /api/products?page=0&size=10&sort=createdAt,desc
 ```
 
 **Query Parameters:**
-| Param | Type | Default | Description |
-|-------|------|---------|-------------|
-| page | int | 0 | Page number |
-| size | int | 12 | Items per page |
-| sortBy | string | createdAt | Sort field |
-| sortDir | string | desc | asc or desc |
 
-**Response (200):**
-```json
-{
-  "success": true,
-  "data": {
-    "content": [
-      {
-        "id": "6951b20c1e8dfc98ca885ed7",
-        "name": "iPhone 15 Pro",
-        "description": "Latest Apple iPhone...",
-        "slug": "iphone-15-pro",
-        "sku": "APPL-IPH15P-256",
-        "price": 999.99,
-        "discountPrice": 949.99,
-        "discountPercentage": 5,
-        "stock": 50,
-        "inStock": true,
-        "categoryId": "...",
-        "categoryName": "Smartphones",
-        "brand": "Apple",
-        "images": ["https://res.cloudinary.com/..."],
-        "tags": ["smartphone", "apple", "iphone"],
-        "active": true,
-        "featured": true,
-        "details": {
-          "weight": "187g",
-          "color": "Natural Titanium"
-        }
-      }
-    ],
-    "page": 0,
-    "size": 12,
-    "totalElements": 25,
-    "totalPages": 3,
-    "first": true,
-    "last": false,
-    "hasNext": true,
-    "hasPrevious": false
-  }
-}
+| Param | Type | Description |
+|-------|------|-------------|
+| page | int | Page number (0-indexed) |
+| size | int | Items per page |
+| sort | string | Sort field and direction |
+| search | string | Search in name, description, brand |
+| categoryId | string | Filter by category |
+| minPrice | decimal | Minimum price |
+| maxPrice | decimal | Maximum price |
+| brand | string | Filter by brand |
+
+### Get Product (Public)
+```http
+GET /api/products/{id}
 ```
 
-## Get Product by ID
+### Create Product 🔒 (Admin)
 ```http
-GET /products/{id}
-```
-
-## Get Product by Slug
-```http
-GET /products/slug/{slug}
-```
-
-Example: `GET /products/slug/iphone-15-pro`
-
-## Search Products
-```http
-GET /products/search?query=apple&page=0&size=12
-```
-
-Searches in: name, description, brand, tags
-
-## Get Featured Products
-```http
-GET /products/featured?page=0&size=12
-```
-
-## Get Products by Category
-```http
-GET /products/category/{categoryId}?page=0&size=12
-```
-
-## Filter by Price Range
-```http
-GET /products/filter/price?minPrice=500&maxPrice=1500&page=0&size=12
-```
-
-## Filter by Brand
-```http
-GET /products/filter/brand?brand=Apple&page=0&size=12
-```
-
-## Create Product (Admin)
-```http
-POST /products
-Authorization: Bearer <admin_token>
-Content-Type: application/json
+POST /api/products
 ```
 
 **Request Body:**
 ```json
 {
   "name": "iPhone 15 Pro",
-  "description": "Latest Apple iPhone with A17 Pro chip",
-  "sku": "APPL-IPH15P-256",
+  "description": "Apple's latest flagship",
   "price": 999.99,
   "discountPrice": 949.99,
   "stock": 50,
-  "categoryId": "smartphones_category_id",
+  "categoryId": "category-id",
   "brand": "Apple",
-  "tags": ["smartphone", "apple", "iphone", "5g"],
-  "active": true,
-  "featured": true,
-  "details": {
-    "weight": "187g",
-    "dimensions": "146.6 x 70.6 x 8.25 mm",
-    "color": "Natural Titanium",
-    "material": "Titanium"
-  }
+  "tags": ["smartphone", "apple", "5g"]
 }
 ```
 
-## Update Product (Admin) - Partial Update
+### Update Product 🔒 (Admin)
 ```http
-PUT /products/{id}
-Authorization: Bearer <admin_token>
+PUT /api/products/{id}
 ```
 
-**Request Body (only fields to update):**
-```json
-{
-  "price": 899.99,
-  "featured": false
-}
+### Delete Product 🔒 (Admin)
+```http
+DELETE /api/products/{id}
 ```
 
-Note: categoryId is NOT required for partial updates.
-
-## Delete Product (Admin)
+### Upload Product Images 🔒 (Admin)
 ```http
-DELETE /products/{id}
-Authorization: Bearer <admin_token>
-```
-
-## Upload Product Images (Admin)
-```http
-POST /products/{id}/images
-Authorization: Bearer <admin_token>
+POST /api/products/{id}/images
 Content-Type: multipart/form-data
-```
-
-**Form Data:**
-- `files`: Image files (JPEG, PNG, WebP, GIF)
-
-## Remove Product Image (Admin)
-```http
-DELETE /products/{id}/images?imageUrl=https://res.cloudinary.com/...
-Authorization: Bearer <admin_token>
 ```
 
 ---
 
-# Error Responses
+## 📂 Category APIs
 
-## 400 Bad Request
+### List Categories (Public)
+```http
+GET /api/categories
+```
+
+### Get Category (Public)
+```http
+GET /api/categories/{id}
+```
+
+### Create Category 🔒 (Admin)
+```http
+POST /api/categories
+```
+
+**Request Body:**
 ```json
 {
-  "success": false,
-  "message": "Validation failed",
+  "name": "Electronics",
+  "description": "Electronic devices",
+  "parentId": null
+}
+```
+
+---
+
+## 🛒 Cart APIs (All require authentication)
+
+### Get Cart 🔒
+```http
+GET /api/cart
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Cart retrieved successfully",
   "data": {
-    "name": "Product name is required",
-    "price": "Price must be greater than 0"
+    "userId": "user-id",
+    "items": [
+      {
+        "productId": "product-id",
+        "productName": "iPhone 15 Pro",
+        "productSlug": "iphone-15-pro",
+        "price": 999.99,
+        "discountPrice": 949.99,
+        "effectivePrice": 949.99,
+        "quantity": 2,
+        "imageUrl": "https://...",
+        "availableStock": 50,
+        "subtotal": 1899.98,
+        "savings": 100.00,
+        "isValid": true,
+        "addedAt": "2024-01-01T10:00:00"
+      }
+    ],
+    "totalItems": 2,
+    "uniqueItemCount": 1,
+    "subtotal": 1899.98,
+    "totalSavings": 100.00,
+    "isEmpty": false,
+    "hasInvalidItems": false,
+    "invalidItems": []
   }
 }
 ```
 
-## 401 Unauthorized
+### Add to Cart 🔒
+```http
+POST /api/cart/add
+```
+
+**Request Body:**
+```json
+{
+  "productId": "product-id",
+  "quantity": 2
+}
+```
+
+### Update Cart Item 🔒
+```http
+PUT /api/cart/update
+```
+
+**Request Body:**
+```json
+{
+  "productId": "product-id",
+  "quantity": 3
+}
+```
+
+### Remove from Cart 🔒
+```http
+DELETE /api/cart/remove/{productId}
+```
+
+### Clear Cart 🔒
+```http
+DELETE /api/cart/clear
+```
+
+### Validate Cart for Checkout 🔒
+```http
+GET /api/cart/validate
+```
+
+---
+
+## ❤️ Wishlist APIs (All require authentication)
+
+### Get Wishlist 🔒
+```http
+GET /api/wishlist
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Wishlist retrieved successfully",
+  "data": {
+    "userId": "user-id",
+    "items": [
+      {
+        "productId": "product-id",
+        "productName": "Samsung Galaxy S24",
+        "productSlug": "samsung-galaxy-s24",
+        "price": 899.99,
+        "discountPrice": 849.99,
+        "effectivePrice": 849.99,
+        "imageUrl": "https://...",
+        "inStock": true,
+        "hasDiscount": true,
+        "discountPercentage": 6,
+        "addedAt": "2024-01-01T10:00:00"
+      }
+    ],
+    "itemCount": 1,
+    "inStockCount": 1,
+    "onSaleCount": 1,
+    "isEmpty": false
+  }
+}
+```
+
+### Add to Wishlist 🔒
+```http
+POST /api/wishlist/add/{productId}
+```
+
+### Remove from Wishlist 🔒
+```http
+DELETE /api/wishlist/remove/{productId}
+```
+
+### Move to Cart 🔒
+```http
+POST /api/wishlist/move-to-cart/{productId}
+```
+
+### Move All to Cart 🔒
+```http
+POST /api/wishlist/move-all-to-cart
+```
+
+### Check if in Wishlist 🔒
+```http
+GET /api/wishlist/check/{productId}
+```
+
+### Clear Wishlist 🔒
+```http
+DELETE /api/wishlist/clear
+```
+
+---
+
+## 📍 Address APIs (All require authentication)
+
+### Get All Addresses 🔒
+```http
+GET /api/addresses
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Addresses retrieved successfully",
+  "data": [
+    {
+      "id": "address-id",
+      "userId": "user-id",
+      "fullName": "John Doe",
+      "phoneNumber": "+1234567890",
+      "addressLine1": "123 Main Street",
+      "addressLine2": "Apt 4B",
+      "city": "New York",
+      "state": "NY",
+      "postalCode": "10001",
+      "country": "USA",
+      "landmark": "Near Central Park",
+      "addressType": "HOME",
+      "isDefault": true,
+      "formattedAddress": "123 Main Street, Apt 4B (Near Central Park), New York, NY - 10001, USA"
+    }
+  ]
+}
+```
+
+### Get Address by ID 🔒
+```http
+GET /api/addresses/{id}
+```
+
+### Get Default Address 🔒
+```http
+GET /api/addresses/default
+```
+
+### Create Address 🔒
+```http
+POST /api/addresses
+```
+
+**Request Body:**
+```json
+{
+  "fullName": "John Doe",
+  "phoneNumber": "+1234567890",
+  "addressLine1": "123 Main Street",
+  "addressLine2": "Apt 4B",
+  "city": "New York",
+  "state": "NY",
+  "postalCode": "10001",
+  "country": "USA",
+  "landmark": "Near Central Park",
+  "addressType": "HOME",
+  "isDefault": true
+}
+```
+
+**Address Types:** `HOME`, `WORK`, `OTHER`
+
+### Update Address 🔒
+```http
+PUT /api/addresses/{id}
+```
+
+### Delete Address 🔒
+```http
+DELETE /api/addresses/{id}
+```
+
+### Set as Default 🔒
+```http
+PATCH /api/addresses/{id}/set-default
+```
+
+---
+
+## ❌ Error Responses
+
+### 400 Bad Request
+```json
+{
+  "success": false,
+  "message": "Validation failed",
+  "errors": {
+    "email": "must be a valid email address",
+    "password": "must be at least 8 characters"
+  }
+}
+```
+
+### 401 Unauthorized
 ```json
 {
   "success": false,
@@ -369,7 +415,7 @@ Authorization: Bearer <admin_token>
 }
 ```
 
-## 403 Forbidden
+### 403 Forbidden
 ```json
 {
   "success": false,
@@ -377,18 +423,23 @@ Authorization: Bearer <admin_token>
 }
 ```
 
-## 404 Not Found
+### 404 Not Found
 ```json
 {
   "success": false,
-  "message": "Product not found with ID: xyz"
+  "message": "Product not found"
 }
 ```
 
-## 409 Conflict
-```json
-{
-  "success": false,
-  "message": "Product with SKU 'APPL-IPH15P-256' already exists"
-}
-```
+---
+
+## 📝 Notes
+
+- 🔒 = Requires authentication
+- (Admin) = Requires ADMIN role
+- All dates are in ISO 8601 format
+- Prices are in BigDecimal with 2 decimal places
+- Cart expires after 30 days of inactivity
+- Maximum 50 unique items in cart
+- Maximum 10 quantity per item
+- Maximum 10 addresses per user
