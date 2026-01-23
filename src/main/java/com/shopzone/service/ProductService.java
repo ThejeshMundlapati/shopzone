@@ -18,11 +18,14 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 
 @Slf4j
@@ -321,6 +324,66 @@ public class ProductService {
     Product updated = productRepository.save(product);
     return buildProductResponse(updated, getCategoryName(updated.getCategoryId()));
   }
+
+  // ============ NEW - Week 4 (Stock Management Methods) ============
+
+  /**
+   * Get multiple products by IDs.
+   * Useful for cart and order operations.
+   */
+  public List<Product> getProductsByIds(List<String> productIds) {
+    return productRepository.findByIdIn(productIds);
+  }
+
+  /**
+   * Get products as a map for quick lookup.
+   */
+  public Map<String, Product> getProductsMapByIds(List<String> productIds) {
+    return productRepository.findByIdIn(productIds)
+        .stream()
+        .collect(Collectors.toMap(Product::getId, Function.identity()));
+  }
+
+  /**
+   * Check if product has sufficient stock.
+   */
+  public boolean hasSufficientStock(String productId, int quantity) {
+    return productRepository.findByIdWithSufficientStock(productId, quantity).isPresent();
+  }
+
+  /**
+   * Reduce stock for a product.
+   * Returns true if successful, false if insufficient stock.
+   */
+  @Transactional
+  public boolean reduceStock(String productId, int quantity) {
+    int result = productRepository.reduceStock(productId, quantity, -quantity);
+    return result > 0;
+  }
+
+  /**
+   * Restore stock for a product (e.g., when order is cancelled).
+   */
+  @Transactional
+  public void restoreStock(String productId, int quantity) {
+    productRepository.increaseStock(productId, quantity);
+  }
+
+  /**
+   * Get low stock products (admin feature).
+   */
+  public List<Product> getLowStockProducts(int threshold) {
+    return productRepository.findLowStockProducts(threshold);
+  }
+
+  /**
+   * Get out of stock products (admin feature).
+   */
+  public List<Product> getOutOfStockProducts() {
+    return productRepository.findOutOfStockProducts();
+  }
+
+  // ============ END Week 4 ============
 
 
   private String ensureUniqueSlug(String slug, String excludeId) {
