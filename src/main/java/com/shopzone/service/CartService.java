@@ -42,6 +42,21 @@ public class CartService {
   }
 
   /**
+   * Get the raw Cart entity.
+   * Used internally by CheckoutService.
+   */
+  public Cart getCartEntity(String userId) {
+    Cart cart = cartRepository.findByUserId(userId).orElse(null);
+
+    if (cart == null || cart.getItems() == null || cart.getItems().isEmpty()) {
+      return null;
+    }
+
+    refreshCartItemsData(cart);
+    return cart;
+  }
+
+  /**
    * Add item to cart
    */
   public CartResponse addToCart(String userId, AddToCartRequest request) {
@@ -150,13 +165,11 @@ public class CartService {
    * Clear cart
    */
   public void clearCart(String userId) {
-    Cart cart = cartRepository.findByUserId(userId)
-        .orElseThrow(() -> new ResourceNotFoundException("Cart not found"));
-
-    cart.clear();
-    cartRepository.save(cart);
-
-    log.info("Cleared cart for user {}", userId);
+    cartRepository.findByUserId(userId).ifPresent(cart -> {
+      cart.clear();
+      cartRepository.save(cart);
+      log.info("Cleared cart for user {}", userId);
+    });
   }
 
   /**
