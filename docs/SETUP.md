@@ -2,11 +2,13 @@
 
 ## Prerequisites
 
-- **Java 17+** - [Download OpenJDK](https://adoptium.net/)
-- **Docker Desktop** - [Download Docker](https://www.docker.com/products/docker-desktop/)
-- **Maven 3.8+** - (included with IDE)
-- **IDE** - IntelliJ IDEA Community (recommended)
-- **Git** - [Download Git](https://git-scm.com/)
+| Software | Version | Download |
+|----------|---------|----------|
+| Java JDK | 17+ | [Adoptium](https://adoptium.net/) |
+| Maven | 3.8+ | [Maven](https://maven.apache.org/) |
+| Docker | 20+ | [Docker Desktop](https://www.docker.com/products/docker-desktop/) |
+| Git | 2.30+ | [Git](https://git-scm.com/) |
+| IDE | Any | IntelliJ IDEA recommended |
 
 ---
 
@@ -18,7 +20,7 @@ git clone https://github.com/ThejeshMundlapati/shopzone.git
 cd shopzone
 ```
 
-### 2. Start All Services
+### 2. Start Databases
 ```bash
 cd docker
 docker-compose up -d
@@ -31,197 +33,291 @@ docker ps
 
 Expected output:
 ```
-CONTAINER ID   IMAGE                    STATUS    PORTS
-xxxx           postgres:15-alpine       Up        0.0.0.0:5432->5432/tcp
-xxxx           mongo:7.0                Up        0.0.0.0:27017->27017/tcp
-xxxx           redis:7-alpine           Up        0.0.0.0:6379->6379/tcp
-xxxx           rediscommander/...       Up        0.0.0.0:8081->8081/tcp
+CONTAINER ID   IMAGE          PORTS                     NAMES
+xxxx           postgres:15    0.0.0.0:5432->5432/tcp    shopzone-postgres
+xxxx           mongo:7        0.0.0.0:27017->27017/tcp  shopzone-mongodb
+xxxx           redis:7        0.0.0.0:6379->6379/tcp    shopzone-redis
 ```
 
-### 4. Configure Cloudinary (Optional for images)
-1. Create free account at [cloudinary.com](https://cloudinary.com)
-2. Get credentials from Dashboard
-3. Update `application.yml`:
-```yaml
-cloudinary:
-  cloud-name: your_cloud_name
-  api-key: your_api_key
-  api-secret: your_api_secret
-```
-
-### 5. Run Application
+### 4. Run Application
 ```bash
+# From project root
 ./mvnw spring-boot:run
 ```
 
-Or in IntelliJ: Run `ShopzoneApplication.java`
+Or in IntelliJ:
+- Open `ShopzoneApplication.java`
+- Click the green ▶️ Run button
 
-### 6. Access Applications
-
-| Service | URL | Purpose |
-|---------|-----|---------|
-| Swagger UI | http://localhost:8080/swagger-ui.html | API Testing |
-| Redis Commander | http://localhost:8081 | Redis GUI |
-
----
-
-## Database Access
-
-### PostgreSQL
-```bash
-docker exec -it shopzone-postgres psql -U shopzone_admin -d shopzone
-```
-
-Common commands:
-```sql
-\dt                          -- List tables
-SELECT * FROM users;         -- View users
-SELECT * FROM addresses;     -- View addresses
-\q                           -- Exit
-```
-
-### MongoDB
-```bash
-docker exec -it shopzone-mongodb mongosh
-```
-
-Common commands:
-```javascript
-use shopzone_products        // Switch database
-db.products.find()           // View products
-db.categories.find()         // View categories
-exit                         // Exit
-```
-
-### Redis
-```bash
-docker exec -it shopzone-redis redis-cli
-```
-
-Common commands:
-```bash
-KEYS *                       # List all keys
-GET cart:{userId}            # Get cart
-TTL cart:{userId}            # Check expiration
-DEL cart:{userId}            # Delete cart
-KEYS wishlist:*              # List wishlists
-FLUSHALL                     # Clear all (dev only!)
-exit                         # Exit
-```
-
-Or use Redis Commander: http://localhost:8081
+### 5. Access Application
+| Service | URL |
+|---------|-----|
+| Swagger UI | http://localhost:8080/swagger-ui.html |
+| API Docs | http://localhost:8080/api-docs |
+| Redis Commander | http://localhost:8081 |
 
 ---
 
-## First Time Setup
+## Docker Compose Configuration
 
-### Create Admin User
-
-1. **Register via Swagger UI**
-   - POST `/api/auth/register`
-   ```json
-   {
-     "email": "admin@shopzone.com",
-     "password": "Admin@123",
-     "firstName": "Admin",
-     "lastName": "User",
-     "phone": "+1234567890"
-   }
-   ```
-
-2. **Update role to ADMIN**
-   ```bash
-   docker exec -it shopzone-postgres psql -U shopzone_admin -d shopzone
-   ```
-   ```sql
-   UPDATE users SET role = 'ADMIN' WHERE email = 'admin@shopzone.com';
-   \q
-   ```
-
-3. **Login to get token**
-   - POST `/api/auth/login`
-
-4. **Authorize in Swagger**
-   - Click "Authorize" button
-   - Enter token (without "Bearer" prefix)
-
----
-
-## Environment Configuration
-
-### application.yml Structure
 ```yaml
-# Server
-server:
-  port: 8080
+# docker/docker-compose.yml
+version: '3.8'
 
+services:
+  postgres:
+    image: postgres:15
+    container_name: shopzone-postgres
+    environment:
+      POSTGRES_DB: shopzone
+      POSTGRES_USER: shopzone_admin
+      POSTGRES_PASSWORD: shopzone_secret_123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  mongodb:
+    image: mongo:7
+    container_name: shopzone-mongodb
+    environment:
+      MONGO_INITDB_ROOT_USERNAME: root
+      MONGO_INITDB_ROOT_PASSWORD: rootpassword
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+
+  redis:
+    image: redis:7-alpine
+    container_name: shopzone-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+
+  redis-commander:
+    image: rediscommander/redis-commander:latest
+    container_name: shopzone-redis-commander
+    environment:
+      - REDIS_HOSTS=local:redis:6379
+    ports:
+      - "8081:8081"
+    depends_on:
+      - redis
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+```
+
+---
+
+## Application Configuration
+
+### application.yml
+```yaml
 spring:
-  # PostgreSQL (Users, Addresses)
+  application:
+    name: shopzone
+
+  # PostgreSQL
   datasource:
     url: jdbc:postgresql://localhost:5432/shopzone
     username: shopzone_admin
-    password: shopzone_secret_2024
+    password: shopzone_secret_123
+    driver-class-name: org.postgresql.Driver
 
-  # MongoDB (Products, Categories)
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+  # MongoDB
   data:
     mongodb:
-      uri: mongodb://localhost:27017/shopzone_products
-    
-    # Redis (Cart, Wishlist)
+      uri: mongodb://shopzone_admin:shopzone_secret_123@localhost:27017/shopzone_products?authSource=admin
+
+    # Redis
     redis:
       host: localhost
       port: 6379
 
-# JWT
+# JWT Configuration
 jwt:
-  secret: <base64-encoded-secret>
+  secret: your-256-bit-secret-key-here-make-it-long-and-random
   expiration: 86400000        # 24 hours
   refresh-expiration: 604800000  # 7 days
 
-# Cart Settings
-cart:
-  expiration-days: 30
-  max-items: 50
-  max-quantity-per-item: 10
-
-# Cloudinary
+# Cloudinary Configuration
 cloudinary:
-  cloud-name: ${CLOUDINARY_CLOUD_NAME}
-  api-key: ${CLOUDINARY_API_KEY}
-  api-secret: ${CLOUDINARY_API_SECRET}
+  cloud-name: your-cloud-name
+  api-key: your-api-key
+  api-secret: your-api-secret
+
+# Order Configuration 🆕
+shopzone:
+  order:
+    tax-rate: 0.08                    # 8% tax
+    free-shipping-threshold: 50.00    # Free shipping over $50
+    flat-shipping-rate: 5.99          # Otherwise $5.99
+    cancellation-window-hours: 24     # Cancel within 24 hours
+
+# Logging
+logging:
+  level:
+    com.shopzone: DEBUG
+    org.springframework.security: DEBUG
 ```
 
 ---
 
-## Docker Commands
+## Environment Variables (Production)
 
-### Start Services
+For production, use environment variables:
+
 ```bash
-docker-compose up -d
+# Database
+export POSTGRES_URL=jdbc:postgresql://prod-host:5432/shopzone
+export POSTGRES_USER=prod_user
+export POSTGRES_PASSWORD=secure_password
+
+export MONGODB_URI=mongodb://user:pass@prod-host:27017/shopzone
+
+export REDIS_HOST=prod-redis-host
+export REDIS_PORT=6379
+
+# JWT
+export JWT_SECRET=your-production-secret-key
+
+# Cloudinary
+export CLOUDINARY_CLOUD_NAME=your-cloud
+export CLOUDINARY_API_KEY=your-key
+export CLOUDINARY_API_SECRET=your-secret
+
+# Order Settings
+export ORDER_TAX_RATE=0.08
+export ORDER_FREE_SHIPPING_THRESHOLD=50.00
 ```
 
-### Stop Services
+---
+
+## MongoDB Setup
+
+### Create Application User
 ```bash
-docker-compose down
+# Connect to MongoDB
+docker exec -it shopzone-mongodb mongosh -u root -p rootpassword
+
+# Create user
+use admin
+db.createUser({
+  user: "shopzone_admin",
+  pwd: "shopzone_secret_123",
+  roles: [
+    { role: "readWrite", db: "shopzone_products" },
+    { role: "dbAdmin", db: "shopzone_products" }
+  ]
+})
 ```
 
-### Reset Everything (Data Loss!)
+---
+
+## Cloudinary Setup
+
+1. Create free account at [cloudinary.com](https://cloudinary.com)
+2. Go to Dashboard → Copy credentials
+3. Update `application.yml` with:
+   - cloud-name
+   - api-key
+   - api-secret
+
+---
+
+## Create Admin User
+
+### Option 1: Register + Update
 ```bash
-docker-compose down -v
-docker-compose up -d
+# 1. Register via API (Swagger UI)
+POST /api/auth/register
+{
+  "firstName": "Admin",
+  "lastName": "User",
+  "email": "admin@shopzone.com",
+  "password": "Admin123!",
+  "phone": "1234567890"
+}
+
+# 2. Update role in PostgreSQL
+docker exec -it shopzone-postgres psql -U shopzone_admin -d shopzone \
+  -c "UPDATE users SET role = 'ADMIN' WHERE email = 'admin@shopzone.com';"
+
+# 3. Login again to get new token with ADMIN role
 ```
 
-### View Logs
-```bash
-docker-compose logs -f              # All services
-docker-compose logs -f postgres     # PostgreSQL only
-docker-compose logs -f redis        # Redis only
+### Option 2: Direct SQL
+```sql
+-- Connect to PostgreSQL
+docker exec -it shopzone-postgres psql -U shopzone_admin -d shopzone
+
+-- Insert admin user (password: Admin123!)
+INSERT INTO users (id, email, password, first_name, last_name, role, enabled, email_verified, created_at, updated_at)
+VALUES (
+  gen_random_uuid(),
+  'admin@shopzone.com',
+  '$2a$10$N9qo8uLOickgx2ZMRZoMyeXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
+  'Admin',
+  'User',
+  'ADMIN',
+  true,
+  true,
+  NOW(),
+  NOW()
+);
 ```
 
-### Restart Single Service
+---
+
+## Testing the Application
+
+### 1. Health Check
 ```bash
-docker-compose restart redis
+curl http://localhost:8080/actuator/health
 ```
+
+### 2. Register User
+```bash
+curl -X POST http://localhost:8080/api/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "firstName": "John",
+    "lastName": "Doe",
+    "email": "john@example.com",
+    "password": "Password123!",
+    "phone": "1234567890"
+  }'
+```
+
+### 3. Login
+```bash
+curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "john@example.com",
+    "password": "Password123!"
+  }'
+```
+
+### 4. Use Swagger UI
+1. Open http://localhost:8080/swagger-ui.html
+2. Click "Authorize"
+3. Enter: `Bearer <your-token>`
+4. Test endpoints
 
 ---
 
@@ -230,90 +326,71 @@ docker-compose restart redis
 ### Port Already in Use
 ```bash
 # Find process using port
-netstat -ano | findstr :8080
+lsof -i :8080  # Mac/Linux
+netstat -ano | findstr :8080  # Windows
 
-# Kill process (Windows)
-taskkill /PID <pid> /F
+# Kill process
+kill -9 <PID>  # Mac/Linux
+taskkill /PID <PID> /F  # Windows
 ```
 
 ### Database Connection Failed
 ```bash
-# Check if containers are running
+# Check containers are running
 docker ps
 
 # Restart containers
-docker-compose restart
-```
-
-### Redis Connection Refused
-```bash
-# Check Redis is running
-docker exec -it shopzone-redis redis-cli ping
-# Should return: PONG
-
-# Restart Redis
-docker-compose restart redis
-```
-
-### Cart Not Saving
-```bash
-# Check Redis Commander
-http://localhost:8081
-
-# Look for keys starting with "cart:"
-# If empty, check application logs
-```
-
-### MongoDB Authentication Error
-```bash
-# Our setup uses NO AUTH for simplicity
-# Check docker-compose.yml doesn't have MONGO_INITDB_ROOT_USERNAME
-
-# Reset MongoDB
 docker-compose down
-docker volume rm docker_mongodb_data
 docker-compose up -d
+
+# Check logs
+docker logs shopzone-postgres
+docker logs shopzone-mongodb
+docker logs shopzone-redis
 ```
 
-### Token Expired (401 Error)
-- Login again at POST `/api/auth/login`
-- Copy new accessToken
-- Re-authorize in Swagger
-
-### Maven Build Failed
+### MongoDB Authentication Failed
 ```bash
-# In IntelliJ: Right-click pom.xml → Maven → Reload Project
-
-# Or command line:
-./mvnw clean install -DskipTests
+# Recreate user
+docker exec -it shopzone-mongodb mongosh -u root -p rootpassword --eval "
+  db.getSiblingDB('admin').dropUser('shopzone_admin');
+  db.getSiblingDB('admin').createUser({
+    user: 'shopzone_admin',
+    pwd: 'shopzone_secret_123',
+    roles: [{role: 'readWrite', db: 'shopzone_products'}]
+  });
+"
 ```
 
-### Lombok Not Working
-1. Install Lombok plugin in IntelliJ
-2. Enable annotation processing:
-   - Settings → Build → Compiler → Annotation Processors
-   - Check "Enable annotation processing"
-3. Rebuild project
+### Lombok Not Working (IntelliJ)
+1. File → Settings → Build → Compiler → Annotation Processors
+2. Check "Enable annotation processing"
+3. File → Invalidate Caches → Invalidate and Restart
+
+### Order Query Fails with Null Parameters 🆕
+If you see `could not determine data type of parameter` error:
+- Ensure `OrderRepository.findWithFilters` uses `CAST(:startDate AS timestamp)`
+- This is a PostgreSQL issue with null LocalDateTime parameters
 
 ---
 
-## IDE Setup (IntelliJ IDEA)
+## Stopping the Application
 
-### Required Plugins
-- Lombok
-- Spring Boot Assistant (optional)
+### Stop Spring Boot
+- IntelliJ: Click red 🟥 Stop button
+- Terminal: Press `Ctrl + C`
 
-### Recommended Settings
-1. **Enable Annotation Processing**
-   - Settings → Build → Compiler → Annotation Processors → Enable
+### Stop Databases
+```bash
+cd docker
+docker-compose down
+```
 
-2. **Auto Import**
-   - Settings → Editor → General → Auto Import
-   - Check "Add unambiguous imports on the fly"
-
-3. **Code Style**
-   - Settings → Editor → Code Style → Java
-   - Set indent to 4 spaces
+### Stop and Remove Data
+```bash
+cd docker
+docker-compose down -v  # Removes all data!
+```
 
 ---
 
@@ -323,21 +400,33 @@ docker-compose up -d
 # All tests
 ./mvnw test
 
-# Skip tests
-./mvnw spring-boot:run -DskipTests
+# Specific test class
+./mvnw test -Dtest=OrderServiceTest
 
-# Single test class
-./mvnw test -Dtest=CartServiceTest
+# With coverage
+./mvnw test jacoco:report
 ```
 
 ---
 
-## Production Considerations
+## Useful Commands
 
-For production deployment (future):
-- Use environment variables for secrets
-- Enable MongoDB authentication
-- Use Redis password
-- Configure proper CORS origins
-- Set up HTTPS
-- Use production database instances
+```bash
+# View PostgreSQL data
+docker exec -it shopzone-postgres psql -U shopzone_admin -d shopzone
+
+# View orders
+SELECT order_number, status, total_amount FROM orders;
+
+# View MongoDB data
+docker exec -it shopzone-mongodb mongosh -u root -p rootpassword
+
+# View products
+use shopzone_products
+db.products.find().pretty()
+
+# View Redis data
+docker exec -it shopzone-redis redis-cli
+KEYS *
+GET "cart:user-id"
+```
