@@ -50,7 +50,9 @@ public class SecurityConfig {
                 "/swagger-ui/**",
                 "/swagger-ui.html",
                 "/v3/api-docs/**",
-                "/api-docs/**"
+                "/api-docs/**",
+                "/swagger-resources/**",
+                "/webjars/**"
             ).permitAll()
 
             .requestMatchers(
@@ -66,7 +68,14 @@ public class SecurityConfig {
             .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
 
             .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
+            .requestMatchers("/api/cart/**").authenticated()
+            .requestMatchers("/api/wishlist/**").authenticated()
+            .requestMatchers("/api/addresses/**").authenticated()
 
+            .requestMatchers("/api/checkout/**").authenticated()
+            .requestMatchers("/api/orders/**").authenticated()
+
+            .requestMatchers("/api/admin/**").hasRole("ADMIN")
             .requestMatchers(HttpMethod.POST, "/api/products/**").hasRole("ADMIN")
             .requestMatchers(HttpMethod.PUT, "/api/products/**").hasRole("ADMIN")
             .requestMatchers(HttpMethod.PATCH, "/api/products/**").hasRole("ADMIN")
@@ -74,10 +83,6 @@ public class SecurityConfig {
             .requestMatchers(HttpMethod.POST, "/api/categories/**").hasRole("ADMIN")
             .requestMatchers(HttpMethod.PUT, "/api/categories/**").hasRole("ADMIN")
             .requestMatchers(HttpMethod.DELETE, "/api/categories/**").hasRole("ADMIN")
-
-            .requestMatchers("/api/cart/**").authenticated()
-            .requestMatchers("/api/wishlist/**").authenticated()
-            .requestMatchers("/api/addresses/**").authenticated()
 
             .anyRequest().authenticated()
         )

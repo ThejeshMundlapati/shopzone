@@ -2,260 +2,418 @@
 
 ## System Overview
 
-ShopZone is a polyglot persistence e-commerce platform using the best database for each data type.
-
 ```
-┌─────────────────────────────────────────────────────────────────────────┐
-│                              CLIENTS                                    │
-│                                                                         │
-│    ┌──────────────┐    ┌──────────────┐    ┌──────────────┐             │
-│    │  Swagger UI  │    │   React App  │    │  Mobile App  │             │
-│    │   (Testing)  │    │   (Future)   │    │   (Future)   │             │
-│    └──────────────┘    └──────────────┘    └──────────────┘             │
-│                                                                         │
-└────────────────────────────────┬────────────────────────────────────────┘
-                                 │
-                                 ▼
-┌─────────────────────────────────────────────────────────────────────────┐
-│                         SPRING BOOT APPLICATION                         │
-│                                                                         │
-│  ┌────────────────────────────────────────────────────────────────────┐ │
-│  │                       SECURITY LAYER                               │ │
-│  │                                                                    │ │
-│  │   JWT Authentication Filter → Security Config → Role-Based Access  │ │
-│  │                                                                    │ │
-│  └────────────────────────────────────────────────────────────────────┘ │
-│                                                                         │
-│  ┌────────────────────────────────────────────────────────────────────┐ │
-│  │                      CONTROLLER LAYER                              │ │
-│  │                                                                    │ │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │ │
-│  │  │  Auth   │ │ Product │ │Category │ │  Cart   │ │ Address │       │ │
-│  │  │   API   │ │   API   │ │   API   │ │   API   │ │   API   │       │ │
-│  │  └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘       │ │
-│  │       │           │           │           │           │            │ │
-│  └───────┼───────────┼───────────┼───────────┼───────────┼────────────┘ │
-│          │           │           │           │           │              │
-│  ┌───────┼───────────┼───────────┼───────────┼───────────┼────────────┐ │
-│  │       ▼           ▼           ▼           ▼           ▼            │ │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │ │
-│  │  │  Auth   │ │ Product │ │Category │ │  Cart   │ │ Address │       │ │
-│  │  │ Service │ │ Service │ │ Service │ │ Service │ │ Service │       │ │
-│  │  └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘       │ │
-│  │       │           │           │           │           │            │ │
-│  │                   SERVICE LAYER                                    │ │
-│  └───────┼───────────┼───────────┼───────────┼───────────┼────────────┘ │
-│          │           │           │           │           │              │
-│  ┌───────┼───────────┼───────────┼───────────┼───────────┼────────────┐ │
-│  │       ▼           ▼           ▼           ▼           ▼            │ │
-│  │  ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐ ┌─────────┐       │ │
-│  │  │  User   │ │ Product │ │Category │ │  Cart   │ │ Address │       │ │
-│  │  │  Repo   │ │  Repo   │ │  Repo   │ │  Repo   │ │  Repo   │       │ │
-│  │  └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘ └────┬────┘       │ │
-│  │       │           │           │           │           │            │ │
-│  │              REPOSITORY LAYER (Data Access)                        │ │
-│  └───────┼───────────┼───────────┼───────────┼───────────┼────────────┘ │
-│          │           │           │           │           │              │
-└──────────┼───────────┼───────────┼───────────┼───────────┼──────────────┘
-           │           │           │           │           │
-           ▼           ▼           ▼           ▼           ▼
-┌──────────────┐ ┌──────────────┐ ┌──────────────┐ ┌──────────────┐
-│  PostgreSQL  │ │   MongoDB    │ │    Redis     │ │  Cloudinary  │
-│              │ │              │ │              │ │              │
-│  • Users     │ │  • Products  │ │  • Cart      │ │  • Images    │
-│  • Addresses │ │  • Categories│ │  • Wishlist  │ │              │
-│              │ │              │ │  • Sessions  │ │              │
-│  (JPA)       │ │  (MongoDB)   │ │  (Redis)     │ │  (HTTP API)  │
-└──────────────┘ └──────────────┘ └──────────────┘ └──────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                         Client Layer                            │
+│                    (Web Browser / Mobile App)                   │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │ HTTP/HTTPS
+                              ▼
+┌────────────────────────────────────────────────────────────────┐
+│                      API Gateway Layer                         │
+│                    (Spring Boot Application)                   │
+├────────────────────────────────────────────────────────────────┤
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │   Auth      │  │  Product    │  │   Order     │             │
+│  │ Controller  │  │ Controller  │  │ Controller  │             │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘             │
+│         │                │                │                    │
+│  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐             │
+│  │   Auth      │  │  Product    │  │   Order     │             │
+│  │  Service    │  │  Service    │  │  Service    │             │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘             │
+│         │                │                │                    │
+├─────────┼────────────────┼────────────────┼────────────────────┤
+│         ▼                ▼                ▼                    │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │ PostgreSQL  │  │  MongoDB    │  │   Redis     │             │
+│  │   Users     │  │  Products   │  │   Cart      │             │
+│  │   Orders    │  │ Categories  │  │  Wishlist   │             │
+│  │  Addresses  │  │             │  │  Sessions   │             │
+│  └─────────────┘  └─────────────┘  └─────────────┘             │
+└────────────────────────────────────────────────────────────────┘
 ```
 
 ---
 
-## Database Selection Rationale
+## Database Architecture
 
-### PostgreSQL (Relational)
-**Used for:** Users, Addresses, Orders (future)
+### Polyglot Persistence Strategy
 
-**Why:**
-- ACID transactions for financial data
-- Complex relationships (user → addresses → orders)
-- Strong consistency requirements
-- Mature, battle-tested
+We use different databases for different purposes:
 
-### MongoDB (Document Store)
-**Used for:** Products, Categories
-
-**Why:**
-- Flexible schema for varying product attributes
-- Nested documents (specifications, variants)
-- Fast catalog reads
-- Easy to add new product fields
-
-### Redis (In-Memory Cache)
-**Used for:** Cart, Wishlist, Sessions
-
-**Why:**
-- Lightning-fast reads/writes
-- Built-in TTL for cart expiration
-- Session data doesn't need complex queries
-- Scales horizontally
-- Perfect for temporary, high-frequency data
+| Database | Use Case | Why |
+|----------|----------|-----|
+| **PostgreSQL** | Users, Orders, Addresses | ACID compliance, relational data, transactions |
+| **MongoDB** | Products, Categories | Flexible schema, nested data, fast reads |
+| **Redis** | Cart, Wishlist, Sessions | In-memory speed, TTL support, temporary data |
 
 ---
 
-## Data Flow Examples
+## PostgreSQL Schema
 
-### Add to Cart Flow
-```
-1. User clicks "Add to Cart"
-         │
-         ▼
-2. CartController receives request
-         │
-         ▼
-3. CartService validates:
-   • Product exists (MongoDB query)
-   • Stock available
-   • Quantity limits
-         │
-         ▼
-4. CartRepository saves to Redis
-   Key: "cart:{userId}"
-   TTL: 30 days
-         │
-         ▼
-5. Response with updated cart
+### Users Table
+```sql
+CREATE TABLE users (
+    id UUID PRIMARY KEY,
+    email VARCHAR(255) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    first_name VARCHAR(100),
+    last_name VARCHAR(100),
+    phone VARCHAR(20),
+    role VARCHAR(20) DEFAULT 'CUSTOMER',
+    email_verified BOOLEAN DEFAULT FALSE,
+    enabled BOOLEAN DEFAULT TRUE,
+    locked BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
 ```
 
-### Checkout Flow (Future Week 4)
+### Addresses Table
+```sql
+CREATE TABLE addresses (
+    id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id),
+    full_name VARCHAR(100) NOT NULL,
+    phone VARCHAR(20) NOT NULL,
+    address_line1 VARCHAR(255) NOT NULL,
+    address_line2 VARCHAR(255),
+    city VARCHAR(100) NOT NULL,
+    state VARCHAR(100) NOT NULL,
+    postal_code VARCHAR(20) NOT NULL,
+    country VARCHAR(100) NOT NULL,
+    landmark VARCHAR(255),
+    is_default BOOLEAN DEFAULT FALSE,
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP
+);
 ```
-1. User clicks "Checkout"
-         │
-         ▼
-2. Validate cart (Redis)
-         │
-         ▼
-3. Get shipping address (PostgreSQL)
-         │
-         ▼
-4. Reserve stock (MongoDB)
-         │
-         ▼
-5. Create order (PostgreSQL)
-         │
-         ▼
-6. Clear cart (Redis)
+
+### Orders Table 🆕
+```sql
+CREATE TABLE orders (
+    id UUID PRIMARY KEY,
+    order_number VARCHAR(20) UNIQUE NOT NULL,
+    user_id UUID REFERENCES users(id),
+    user_email VARCHAR(255),
+    user_full_name VARCHAR(200),
+    
+    -- Status
+    status VARCHAR(20) NOT NULL,
+    payment_status VARCHAR(20) NOT NULL,
+    
+    -- Shipping Address Snapshot
+    shipping_address_id UUID,
+    shipping_full_name VARCHAR(100),
+    shipping_phone_number VARCHAR(20),
+    shipping_address_line1 VARCHAR(255),
+    shipping_address_line2 VARCHAR(255),
+    shipping_city VARCHAR(100),
+    shipping_state VARCHAR(100),
+    shipping_postal_code VARCHAR(20),
+    shipping_country VARCHAR(100),
+    shipping_landmark VARCHAR(255),
+    
+    -- Shipping Info
+    tracking_number VARCHAR(100),
+    shipping_carrier VARCHAR(50),
+    
+    -- Amounts
+    subtotal DECIMAL(10,2),
+    tax_rate DECIMAL(5,4),
+    tax_amount DECIMAL(10,2),
+    shipping_cost DECIMAL(10,2),
+    discount_amount DECIMAL(10,2),
+    total_amount DECIMAL(10,2),
+    
+    -- Notes
+    customer_notes TEXT,
+    admin_notes TEXT,
+    cancellation_reason TEXT,
+    cancelled_by VARCHAR(20),
+    
+    -- Payment
+    payment_method VARCHAR(50),
+    payment_id VARCHAR(100),
+    
+    -- Timestamps
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    paid_at TIMESTAMP,
+    confirmed_at TIMESTAMP,
+    shipped_at TIMESTAMP,
+    delivered_at TIMESTAMP,
+    cancelled_at TIMESTAMP
+);
+```
+
+### Order Items Table 🆕
+```sql
+CREATE TABLE order_items (
+    id UUID PRIMARY KEY,
+    order_id UUID REFERENCES orders(id),
+    
+    -- Product Snapshot
+    product_id VARCHAR(50),
+    product_name VARCHAR(255),
+    product_slug VARCHAR(255),
+    product_sku VARCHAR(100),
+    product_image VARCHAR(500),
+    product_brand VARCHAR(100),
+    
+    -- Pricing
+    unit_price DECIMAL(10,2),
+    discount_price DECIMAL(10,2),
+    effective_price DECIMAL(10,2),
+    quantity INTEGER,
+    total_price DECIMAL(10,2)
+);
+```
+
+---
+
+## MongoDB Schema
+
+### Products Collection
+```javascript
+{
+  "_id": ObjectId,
+  "name": "iPhone 15 Pro",
+  "slug": "iphone-15-pro",
+  "description": "Latest Apple smartphone",
+  "price": 999.99,
+  "discountPrice": 949.99,
+  "stock": 100,
+  "sku": "IPHONE-15-PRO",
+  "brand": "Apple",
+  "categoryId": ObjectId,
+  "images": [
+    {
+      "url": "https://cloudinary.com/...",
+      "publicId": "products/abc123",
+      "isPrimary": true
+    }
+  ],
+  "tags": ["smartphone", "apple", "5g"],
+  "specifications": {
+    "color": "Space Black",
+    "storage": "256GB"
+  },
+  "active": true,
+  "createdAt": ISODate,
+  "updatedAt": ISODate
+}
+```
+
+### Categories Collection
+```javascript
+{
+  "_id": ObjectId,
+  "name": "Smartphones",
+  "slug": "smartphones",
+  "description": "Mobile phones and accessories",
+  "parentId": ObjectId | null,
+  "imageUrl": "https://cloudinary.com/...",
+  "active": true,
+  "createdAt": ISODate,
+  "updatedAt": ISODate
+}
+```
+
+---
+
+## Redis Data Structure
+
+### Cart
+```
+Key: cart:{userId}
+Type: String (JSON)
+TTL: 30 days
+
+{
+  "userId": "uuid",
+  "items": [
+    {
+      "productId": "product-id",
+      "productName": "iPhone 15",
+      "quantity": 2,
+      "unitPrice": 999.99,
+      "effectivePrice": 949.99,
+      "addedAt": "2026-01-21T10:00:00"
+    }
+  ],
+  "updatedAt": "2026-01-21T10:30:00"
+}
+```
+
+### Wishlist
+```
+Key: wishlist:{userId}
+Type: String (JSON)
+TTL: 90 days
+```
+
+---
+
+## Order Flow Architecture 🆕
+
+### Checkout Process
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      CHECKOUT FLOW                              │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   1. Validate Cart                                              │
+│   ┌──────────────────────────────────────────────────────────┐  │
+│   │  • Check cart not empty                                  │  │
+│   │  • Verify products still exist                           │  │
+│   │  • Check stock availability                              │  │
+│   │  • Validate prices haven't changed significantly         │  │
+│   └──────────────────────────────────────────────────────────┘  │
+│                              │                                  │
+│                              ▼                                  │
+│   2. Calculate Totals                                           │
+│   ┌──────────────────────────────────────────────────────────┐  │
+│   │  • Subtotal = Σ(effectivePrice × quantity)               │  │
+│   │  • Tax = subtotal × taxRate (8%)                         │  │
+│   │  • Shipping = $0 if subtotal > $50, else $5.99           │  │
+│   │  • Total = subtotal + tax + shipping                     │  │
+│   └──────────────────────────────────────────────────────────┘  │
+│                              │                                  │
+│                              ▼                                  │
+│   3. Create Order (Transactional)                               │
+│   ┌──────────────────────────────────────────────────────────┐  │
+│   │  • Generate order number (ORD-YYYYMMDD-XXXX)             │  │
+│   │  • Snapshot address and product data                     │  │
+│   │  • Save order to PostgreSQL                              │  │
+│   │  • Reduce stock in MongoDB                               │  │
+│   │  • Clear cart in Redis                                   │  │
+│   └──────────────────────────────────────────────────────────┘  │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Order Status State Machine
+```
+                    ┌─────────────┐
+                    │   PENDING   │ ◄── Order Created
+                    └──────┬──────┘
+                           │
+              ┌────────────┼───────────┐
+              │            │           │
+              ▼            ▼           │
+        ┌──────────┐ ┌──────────┐      │
+        │CANCELLED │ │CONFIRMED │      │
+        └──────────┘ └────┬─────┘      │
+                          │            │
+                          ▼            │
+                   ┌────────────┐      │
+                   │ PROCESSING │      │
+                   └─────┬──────┘      │
+                         │             │
+            ┌────────────┼─────────┐   │
+            │            │         │   │
+            ▼            ▼         │   │
+      ┌──────────┐ ┌──────────┐    │   │
+      │CANCELLED │ │  SHIPPED │    │   │
+      └──────────┘ └────┬─────┘    │   │
+                        │          │   │
+              ┌─────────┼─────────┐│   │
+              │         │         ││   │
+              ▼         ▼         ││   │
+        ┌──────────┐ ┌──────────┐ ││   │
+        │DELIVERED │ │ RETURNED │ ││   │
+        └──────────┘ └────┬─────┘ ││   │
+                          │       ││   │
+                          ▼       ││   │
+                    ┌──────────┐  ││   │
+                    │ REFUNDED │◄─┴┴───┘
+                    └──────────┘
+```
+
+---
+
+## Cross-Database Transaction Handling 🆕
+
+Since we use multiple databases, we handle distributed transactions carefully:
+
+```
+┌────────────────────────────────────────────────────────────────┐
+│                  Order Placement Transaction                   │
+├────────────────────────────────────────────────────────────────┤
+│                                                                │
+│  @Transactional (PostgreSQL)                                   │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  1. Create Order ──► 2. Reduce Stock ──► 3. Clear Cart  │   │
+│  │     (PostgreSQL)        (MongoDB)          (Redis)      │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                              │                                 │
+│                              ▼                                 │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │  If MongoDB stock reduction fails:                      │   │
+│  │  - PostgreSQL order is rolled back automatically        │   │
+│  │  - Application throws exception                         │   │
+│  │  - User sees error message                              │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                │
+└────────────────────────────────────────────────────────────────┘
+```
+
+### Compensation Pattern
+For order cancellation, we use compensation:
+```
+Cancel Order:
+1. Update order status to CANCELLED (PostgreSQL)
+2. Restore stock in MongoDB (compensation)
+3. Both operations succeed → Success
+4. Stock restore fails → Log error, manual intervention needed
 ```
 
 ---
 
 ## Security Architecture
 
+### Authentication Flow
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        HTTP REQUEST                             │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                   JWT Authentication Filter                     │
-│                                                                 │
-│   1. Extract token from Authorization header                    │
-│   2. Validate token signature and expiration                    │
-│   3. Load user details from database                            │
-│   4. Set authentication context                                 │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                     Security Filter Chain                       │
-│                                                                 │
-│   PUBLIC ENDPOINTS:                                             │
-│   • /api/auth/register, /login, /refresh                        │
-│   • GET /api/products/**, /api/categories/**                    │
-│   • /swagger-ui/**                                              │
-│                                                                 │
-│   AUTHENTICATED:                                                │
-│   • /api/cart/**                                                │
-│   • /api/wishlist/**                                            │
-│   • /api/addresses/**                                           │
-│   • /api/auth/me                                                │
-│                                                                 │
-│   ADMIN ONLY:                                                   │
-│   • POST/PUT/DELETE /api/products/**                            │
-│   • POST/PUT/DELETE /api/categories/**                          │
-│                                                                 │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────┐    1. Login     ┌──────────┐
+│  Client  │ ──────────────► │  Server  │
+└──────────┘                 └────┬─────┘
+                                  │
+     2. JWT Token                 │
+◄─────────────────────────────────┘
+     
+┌──────────┐  3. Request+JWT  ┌──────────┐
+│  Client  │ ───────────────► │  Server  │
+└──────────┘                  └────┬─────┘
+                                   │
+     4. Protected Resource         │
+◄──────────────────────────────────┘
+```
+
+### Authorization Levels
+| Role | Permissions |
+|------|-------------|
+| PUBLIC | View products, categories |
+| CUSTOMER | Cart, wishlist, orders, addresses |
+| ADMIN | All + product/category CRUD + order management |
+
+---
+
+## Configuration Management
+
+```yaml
+shopzone:
+  order:
+    tax-rate: 0.08                    # 8% tax
+    free-shipping-threshold: 50.00    # Free shipping over $50
+    flat-shipping-rate: 5.99          # Otherwise $5.99
+    cancellation-window-hours: 24     # Cancel within 24hrs
 ```
 
 ---
 
-## Package Structure
-
-```
-com.shopzone/
-├── config/           # Configuration classes
-│   ├── SecurityConfig.java      # Security rules
-│   ├── RedisConfig.java         # Redis template
-│   ├── MongoConfig.java         # MongoDB auditing
-│   ├── CloudinaryConfig.java    # Image storage
-│   ├── JwtConfig.java           # JWT properties
-│   └── OpenApiConfig.java       # Swagger setup
-│
-├── controller/       # REST endpoints (thin layer)
-│   ├── AuthController.java
-│   ├── ProductController.java
-│   ├── CategoryController.java
-│   ├── CartController.java
-│   ├── WishlistController.java
-│   └── AddressController.java
-│
-├── service/          # Business logic (thick layer)
-│   ├── AuthService.java
-│   ├── ProductService.java
-│   ├── CategoryService.java
-│   ├── CartService.java
-│   ├── WishlistService.java
-│   ├── AddressService.java
-│   ├── JwtService.java
-│   └── CloudinaryService.java
-│
-├── repository/       # Data access
-│   ├── UserRepository.java        (JPA)
-│   ├── AddressRepository.java     (JPA)
-│   ├── ProductRepository.java     (MongoDB)
-│   ├── CategoryRepository.java    (MongoDB)
-│   ├── CartRepository.java        (Redis - manual)
-│   └── WishlistRepository.java    (Redis - manual)
-│
-├── model/            # Domain entities
-│   ├── User.java                  (JPA Entity)
-│   ├── Address.java               (JPA Entity)
-│   ├── Product.java               (MongoDB Document)
-│   ├── Category.java              (MongoDB Document)
-│   ├── Cart.java                  (Redis POJO)
-│   ├── CartItem.java              (Redis POJO)
-│   ├── Wishlist.java              (Redis POJO)
-│   └── WishlistItem.java          (Redis POJO)
-│
-├── dto/              # Data Transfer Objects
-│   ├── request/      # Input validation
-│   └── response/     # Output formatting
-│
-├── exception/        # Error handling
-│   ├── GlobalExceptionHandler.java
-│   ├── ResourceNotFoundException.java
-│   ├── BadRequestException.java
-│   └── UnauthorizedException.java
-│
-└── security/         # Security components
-    └── JwtAuthenticationFilter.java
-```
-
----
-
-## Key Design Patterns
+## Design Patterns Used
 
 ### 1. Repository Pattern
 - Abstracts data access
@@ -276,12 +434,21 @@ com.shopzone/
 - `fromEntity()` methods in DTOs
 - Clean entity-to-DTO conversion
 
+### 5. Snapshot Pattern 🆕
+- Order preserves address/product data at order time
+- Protects against future changes
+- Maintains historical accuracy
+
+### 6. State Machine Pattern 🆕
+- Order status transitions validated
+- Invalid transitions rejected
+- Clear workflow enforcement
+
 ---
 
-## Future Architecture (Microservices)
+## Future Architecture (Microservices - Phase 2+)
 
 ```
-Phase 5 Architecture:
 ┌─────────────────────────────────────────────────────────────────┐
 │                        API Gateway                              │
 │                    (Spring Cloud Gateway)                       │
@@ -293,7 +460,6 @@ Phase 5 Architecture:
 │   User   │ │ Product  │ │   Cart   │ │  Order   │ │ Payment  │
 │ Service  │ │ Service  │ │ Service  │ │ Service  │ │ Service  │
 └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘
-     │            │            │            │            │
      │            │            │            │            │
      └────────────┴────────────┴────────────┴────────────┘
                               │

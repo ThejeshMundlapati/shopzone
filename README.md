@@ -44,197 +44,182 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 - [x] Address management (CRUD)
 - [x] Default address selection
 
-### Upcoming
-- [ ] Week 4: Orders & Checkout
-- [ ] Phase 2: Payment Integration
-- [ ] Phase 3: Frontend (React)
-- [ ] Phase 4: Microservices Migration
+#### Week 4: Orders & Checkout ✅ 🆕
+- [x] Complete checkout flow with validation
+- [x] Order placement with stock management
+- [x] Human-readable order numbers (ORD-YYYYMMDD-XXXX)
+- [x] Order lifecycle management
+- [x] User order history & tracking
+- [x] Order cancellation with stock restoration
+- [x] Admin order management & statistics
 
-## 🛠 Tech Stack
+### Upcoming
+- [ ] Week 5: Payment Integration (Stripe)
+- [ ] Phase 2: Reviews & Ratings
+
+## 🛠️ Tech Stack
 
 | Layer | Technology |
 |-------|------------|
 | **Backend** | Java 17, Spring Boot 3.2 |
 | **Security** | Spring Security, JWT |
-| **Database** | PostgreSQL (Users, Addresses) |
-| **NoSQL** | MongoDB (Products, Categories) |
-| **Cache** | Redis (Cart, Wishlist) |
-| **Storage** | Cloudinary (Images) |
-| **Docs** | OpenAPI 3.0 / Swagger UI |
-| **Container** | Docker, Docker Compose |
+| **Databases** | PostgreSQL 15 (Users, Orders), MongoDB 7 (Products), Redis 7 (Cart) |
+| **Image Storage** | Cloudinary |
+| **Documentation** | Swagger/OpenAPI 3.0 |
+| **Containerization** | Docker, Docker Compose |
 
-## 🏗 Architecture
+## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                         CLIENT                                  │
-│                    (Swagger UI / React)                         │
-└─────────────────────────────────────────────────────────────────┘
-                              │
-                              ▼
-┌─────────────────────────────────────────────────────────────────┐
-│                      SPRING BOOT APP                            │
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐         │
-│  │   Auth   │  │ Product  │  │   Cart   │  │ Address  │         │
-│  │Controller│  │Controller│  │Controller│  │Controller│         │
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘         │
-│       │             │             │             │               │
-│  ┌────┴─────┐  ┌────┴─────┐  ┌────┴─────┐  ┌────┴─────┐         │
-│  │   Auth   │  │ Product  │  │   Cart   │  │ Address  │         │
-│  │ Service  │  │ Service  │  │ Service  │  │ Service  │         │ 
-│  └────┬─────┘  └────┬─────┘  └────┬─────┘  └────┬─────┘         │
-│       │             │             │             │               │
-└───────┼─────────────┼─────────────┼─────────────┼───────────────┘
-        │             │             │             │
-        ▼             ▼             ▼             ▼
-┌──────────────┐ ┌──────────┐ ┌──────────┐ ┌──────────────┐
-│  PostgreSQL  │ │ MongoDB  │ │  Redis   │ │  PostgreSQL  │
-│   (Users)    │ │(Products)│ │  (Cart)  │ │ (Addresses)  │
-└──────────────┘ └──────────┘ └──────────┘ └──────────────┘
+┌─────────────────────────────────────────────────────────────┐
+│                      Client (Browser/App)                   │
+└─────────────────────────┬───────────────────────────────────┘
+                          │
+                          ▼
+┌────────────────────────────────────────────────────────────┐
+│                    Spring Boot Application                 │
+├────────────────────────────────────────────────────────────┤
+│  Controllers → Services → Repositories                     │
+├────────────────────────────────────────────────────────────┤
+│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
+│  │PostgreSQL│  │ MongoDB  │  │  Redis   │  │Cloudinary│    │
+│  │  Users   │  │ Products │  │  Cart    │  │  Images  │    │
+│  │  Orders  │  │Categories│  │ Wishlist │  │          │    │
+│  │ Addresses│  │          │  │          │  │          │    │
+│  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
+└────────────────────────────────────────────────────────────┘
 ```
 
 ## 🚀 Getting Started
 
 ### Prerequisites
-
 - Java 17+
 - Docker & Docker Compose
 - Maven 3.8+
-- IDE (IntelliJ IDEA recommended)
 
 ### Quick Start
 
-1. **Clone the repository**
 ```bash
+# Clone repository
 git clone https://github.com/ThejeshMundlapati/shopzone.git
 cd shopzone
-```
 
-2. **Start databases**
-```bash
+# Start databases
 cd docker
 docker-compose up -d
-```
 
-3. **Configure Cloudinary** (for image uploads)
-    - Create free account at [cloudinary.com](https://cloudinary.com)
-    - Update `application.yml` with your credentials
-
-4. **Run the application**
-```bash
+# Run application
 ./mvnw spring-boot:run
-```
 
-5. **Access Swagger UI**
+# Access Swagger UI
+open http://localhost:8080/swagger-ui.html
 ```
-http://localhost:8080/swagger-ui.html
-```
-
-6. **Access Redis Commander** (optional)
-```
-http://localhost:8081
-```
-
-### Docker Services
-
-| Service | Port | Purpose |
-|---------|------|---------|
-| PostgreSQL | 5432 | Users, Addresses |
-| MongoDB | 27017 | Products, Categories |
-| Redis | 6379 | Cart, Wishlist |
-| Redis Commander | 8081 | Redis GUI |
 
 ## 📚 API Documentation
 
-### Authentication APIs
+### Authentication
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/auth/register` | Register new user |
-| POST | `/api/auth/login` | User login |
-| POST | `/api/auth/refresh` | Refresh token |
-| POST | `/api/auth/forgot-password` | Request password reset |
+| POST | `/api/auth/login` | Login and get tokens |
+| POST | `/api/auth/refresh` | Refresh access token |
 | GET | `/api/auth/me` | Get current user |
 
-### Product APIs
+### Products & Categories
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/products` | List products (paginated) |
 | GET | `/api/products/{id}` | Get product details |
+| GET | `/api/categories` | List all categories |
 | POST | `/api/products` | Create product (Admin) |
-| PUT | `/api/products/{id}` | Update product (Admin) |
-| DELETE | `/api/products/{id}` | Delete product (Admin) |
 
-### Cart APIs
+### Cart & Wishlist
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/cart` | Get user's cart |
+| GET | `/api/cart` | Get cart |
 | POST | `/api/cart/add` | Add item to cart |
-| PUT | `/api/cart/update` | Update item quantity |
+| PUT | `/api/cart/update` | Update quantity |
 | DELETE | `/api/cart/remove/{productId}` | Remove item |
-| DELETE | `/api/cart/clear` | Clear cart |
-| GET | `/api/cart/validate` | Validate for checkout |
-
-### Wishlist APIs
-| Method | Endpoint | Description |
-|--------|----------|-------------|
 | GET | `/api/wishlist` | Get wishlist |
-| POST | `/api/wishlist/add/{productId}` | Add to wishlist |
-| DELETE | `/api/wishlist/remove/{productId}` | Remove item |
 | POST | `/api/wishlist/move-to-cart/{productId}` | Move to cart |
 
-### Address APIs
+### Checkout & Orders 🆕
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| GET | `/api/addresses` | Get all addresses |
-| POST | `/api/addresses` | Create address |
-| PUT | `/api/addresses/{id}` | Update address |
-| DELETE | `/api/addresses/{id}` | Delete address |
-| PATCH | `/api/addresses/{id}/set-default` | Set as default |
+| GET | `/api/checkout/validate` | Validate cart for checkout |
+| GET | `/api/checkout/preview` | Get order preview with totals |
+| POST | `/api/checkout/place-order` | Place order |
+| GET | `/api/orders` | Get my orders |
+| GET | `/api/orders/{orderNumber}` | Get order details |
+| GET | `/api/orders/{orderNumber}/track` | Track order |
+| POST | `/api/orders/{orderNumber}/cancel` | Cancel order |
+
+### Admin Orders 🆕
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/admin/orders` | Get all orders (filtered) |
+| GET | `/api/admin/orders/{orderNumber}` | Get any order details |
+| PATCH | `/api/admin/orders/{orderNumber}/status` | Update order status |
+| GET | `/api/admin/orders/stats` | Get order statistics |
+| GET | `/api/admin/orders/search` | Search orders |
 
 ## 📁 Project Structure
 
 ```
 shopzone/
+├── src/main/java/com/shopzone/
+│   ├── config/              # Configuration classes
+│   │   ├── SecurityConfig.java
+│   │   ├── RedisConfig.java
+│   │   ├── OrderConfig.java      🆕
+│   │   └── OpenApiConfig.java
+│   ├── controller/          # REST controllers
+│   │   ├── AuthController.java
+│   │   ├── ProductController.java
+│   │   ├── CartController.java
+│   │   ├── CheckoutController.java   🆕
+│   │   ├── OrderController.java      🆕
+│   │   └── AdminOrderController.java 🆕
+│   ├── dto/                 # Data Transfer Objects
+│   │   ├── request/
+│   │   └── response/
+│   ├── model/               # Entity classes
+│   │   ├── User.java
+│   │   ├── Product.java
+│   │   ├── Order.java           🆕
+│   │   ├── OrderItem.java       🆕
+│   │   └── enums/
+│   │       ├── OrderStatus.java     🆕
+│   │       └── PaymentStatus.java   🆕
+│   ├── repository/          # Data access layer
+│   │   ├── jpa/
+│   │   │   ├── UserRepository.java
+│   │   │   ├── AddressRepository.java
+│   │   │   └── OrderRepository.java 🆕
+│   │   └── mongo/
+│   ├── service/             # Business logic
+│   │   ├── CheckoutService.java     🆕
+│   │   ├── OrderService.java        🆕
+│   │   └── OrderNumberGenerator.java 🆕
+│   └── exception/           # Custom exceptions
+├── src/main/resources/
+│   └── application.yml
 ├── docker/
 │   └── docker-compose.yml
-├── docs/
-│   ├── API.md
-│   ├── ARCHITECTURE.md
-│   ├── CHANGELOG.md
-│   └── SETUP.md
-├── src/main/java/com/shopzone/
-│   ├── config/          # Configuration classes
-│   ├── controller/      # REST controllers
-│   ├── dto/             # Data Transfer Objects
-│   ├── exception/       # Custom exceptions
-│   ├── model/           # Entity/Document models
-│   ├── repository/      # Data repositories
-│   ├── security/        # Security filters
-│   └── service/         # Business logic
-└── src/main/resources/
-    └── application.yml
+└── docs/
+    ├── API.md
+    ├── ARCHITECTURE.md
+    ├── CHANGELOG.md
+    └── SETUP.md
 ```
 
-## 📈 Development Progress
 
-| Phase | Week | Feature | Status |
-|-------|------|---------|--------|
-| 1 | 1 | Authentication | ✅ Complete |
-| 1 | 2 | Product Catalog | ✅ Complete |
-| 1 | 3 | Cart & Wishlist | ✅ Complete |
-| 1 | 4 | Orders | 🔄 Next |
-| 2 | 5-7 | Payment & Reviews | ⏳ Planned |
-| 3 | 8-11 | Frontend | ⏳ Planned |
-| 4 | 12-13 | Docker & CI/CD | ⏳ Planned |
-| 5 | 14-18 | Microservices | ⏳ Planned |
-| 6 | 19-21 | Kubernetes | ⏳ Planned |
+## 👨‍💻 Author
+
+**Thejesh**
+- GitHub: [@ThejeshMundlapati](https://github.com/ThejeshMundlapati)
+- LinkedIn: [Thejesh Mundlapati](https://www.linkedin.com/in/thejesh-mundlapati-9245642b6/)
 
 ## 📄 License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## 👤 Author
-
-**Thejesh**
-- GitHub: [@ThejeshMundlapati](https://github.com/ThejeshMundlapati)
-- Project: Personal portfolio project
