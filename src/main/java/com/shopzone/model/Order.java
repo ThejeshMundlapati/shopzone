@@ -22,7 +22,8 @@ import java.util.List;
     @Index(name = "idx_order_user_id", columnList = "user_id"),
     @Index(name = "idx_order_number", columnList = "order_number"),
     @Index(name = "idx_order_status", columnList = "status"),
-    @Index(name = "idx_order_created_at", columnList = "created_at")
+    @Index(name = "idx_order_created_at", columnList = "created_at"),
+    @Index(name = "idx_order_payment_intent", columnList = "stripe_payment_intent_id")
 })
 public class Order {
 
@@ -33,7 +34,6 @@ public class Order {
   @Column(name = "order_number", unique = true, nullable = false, length = 20)
   private String orderNumber;
 
-
   @Column(name = "user_id", nullable = false)
   private String userId;
 
@@ -42,6 +42,7 @@ public class Order {
 
   @Column(name = "user_full_name")
   private String userFullName;
+
 
   @Column(name = "shipping_address_id")
   private String shippingAddressId;
@@ -94,6 +95,38 @@ public class Order {
   @Column(name = "payment_status", length = 20)
   @Builder.Default
   private PaymentStatus paymentStatus = PaymentStatus.PENDING;
+
+  /**
+   * Stripe Payment Intent ID for this order.
+   */
+  @Column(name = "stripe_payment_intent_id")
+  private String stripePaymentIntentId;
+
+  /**
+   * Stripe Charge ID after successful payment.
+   */
+  @Column(name = "stripe_charge_id")
+  private String stripeChargeId;
+
+  /**
+   * Client secret for frontend payment confirmation.
+   * Transient - not stored, only returned in response.
+   */
+  @Transient
+  private String paymentClientSecret;
+
+  /**
+   * Receipt URL from Stripe.
+   */
+  @Column(name = "receipt_url", length = 500)
+  private String receiptUrl;
+
+  /**
+   * Amount refunded (if any).
+   */
+  @Column(name = "amount_refunded", precision = 10, scale = 2)
+  @Builder.Default
+  private BigDecimal amountRefunded = BigDecimal.ZERO;
 
 
   @Column(name = "customer_notes", length = 500)
@@ -181,5 +214,56 @@ public class Order {
 
   public void addItem(OrderItem item) {
     items.add(item);
+  }
+
+
+  /**
+   * Record successful payment.
+   */
+  public void recordPayment(String chargeId, String receiptUrl) {
+    this.stripeChargeId = chargeId;
+    this.receiptUrl = receiptUrl;
+    this.paymentStatus = PaymentStatus.PAID;
+    this.paidAt = LocalDateTime.now();
+    if (this.status == OrderStatus.PENDING) {
+      this.status = OrderStatus.CONFIRMED;
+      this.confirmedAt = LocalDateTime.now();
+    }
+  }
+
+  /**
+   * Record failed payment.
+   */
+  public void recordPaymentFailure() {
+    this.paymentStatus = PaymentStatus.FAILED;
+  }
+
+  /**
+   * Record refund.
+   */
+  public void recordRefund(BigDecimal refundAmount) {
+    this.amountRefunded = this.amountRefunded.add(refundAmount);
+    if (this.amountRefunded.compareTo(this.totalAmount) >= 0) {
+      this.paymentStatus = PaymentStatus.REFUNDED;
+      this.status = OrderStatus.REFUNDED;
+    } else {
+      this.paymentStatus = PaymentStatus.PARTIALLY_REFUNDED;
+    }
+  }
+
+  /**
+   * Check if order can be refunded.
+   */
+  public boolean canRefund() {
+    return paymentStatus != null &&
+        paymentStatus.canRefund() &&
+        totalAmount.subtract(amountRefunded).compareTo(BigDecimal.ZERO) > 0;
+  }
+
+  /**
+   * Get refundable amount.
+   */
+  public BigDecimal getRefundableAmount() {
+    return totalAmount.subtract(amountRefunded);
   }
 }
