@@ -94,10 +94,16 @@ public class OrderService {
               orderConfig.getCancellationWindowHours() + " hours of placement.");
     }
 
+    if (order.getPaymentStatus() == PaymentStatus.PAID) {
+      throw new BadRequestException(
+          "Paid orders cannot be cancelled directly. Please request a refund instead.");
+    }
+
     order.setStatus(OrderStatus.CANCELLED);
     order.setCancelledAt(LocalDateTime.now());
     order.setCancellationReason(request.getReason());
     order.setCancelledBy("USER");
+    order.setPaymentStatus(PaymentStatus.CANCELLED);
 
     restoreStock(order);
 
@@ -128,11 +134,13 @@ public class OrderService {
   }
 
   @Transactional(readOnly = true)
-  public OrderResponse getOrderByNumber(String orderNumber) {
+  public OrderResponse getOrderByNumberResponse(String orderNumber) {
     Order order = orderRepository.findByOrderNumberWithItems(orderNumber)
         .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderNumber));
     return OrderResponse.fromEntity(order);
   }
+
+
 
   @Transactional
   public OrderResponse updateOrderStatus(String orderNumber, UpdateOrderStatusRequest request) {
@@ -236,8 +244,69 @@ public class OrderService {
         .build();
   }
 
+
   /**
-   * Helper Method.
+   * Get order entity by ID (internal use for PaymentService).
+   */
+  @Transactional(readOnly = true)
+  public Order getOrderById(String orderId) {
+    return orderRepository.findById(orderId)
+        .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderId));
+  }
+
+  /**
+   * Get order entity by order number (internal use for PaymentService).
+   */
+  @Transactional(readOnly = true)
+  public Order getOrderByNumber(String orderNumber) {
+    return orderRepository.findByOrderNumberWithItems(orderNumber)
+        .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderNumber));
+  }
+
+  /**
+   * Save order (for PaymentService to update payment fields).
+   */
+  @Transactional
+  public Order saveOrder(Order order) {
+    return orderRepository.save(order);
+  }
+
+  /**
+   * Reduce stock for all items in an order.
+   * Called by PaymentService when payment succeeds via webhook.
+   */
+  @Transactional
+  public void reduceStockForOrder(Order order) {
+    log.info("Reducing stock for order: {}", order.getOrderNumber());
+
+    for (OrderItem item : order.getItems()) {
+      int result = productRepository.reduceStock(
+          item.getProductId(),
+          item.getQuantity(),
+          -item.getQuantity()
+      );
+
+      if (result == 0) {
+        log.error("Failed to reduce stock for product: {} in order: {}",
+            item.getProductId(), order.getOrderNumber());
+      } else {
+        log.debug("Reduced stock for {} by {}", item.getProductId(), item.getQuantity());
+      }
+    }
+  }
+
+  /**
+   * Restore stock for all items in an order (public method for RefundService).
+   */
+  @Transactional
+  public void restoreStockForOrder(Order order) {
+    log.info("Restoring stock for order: {}", order.getOrderNumber());
+    restoreStock(order);
+  }
+
+
+  /**
+   * Helper Method - Restore stock (private).
    */
   private void restoreStock(Order order) {
     for (OrderItem item : order.getItems()) {

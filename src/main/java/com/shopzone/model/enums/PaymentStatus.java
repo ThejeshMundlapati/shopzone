@@ -1,46 +1,62 @@
 package com.shopzone.model.enums;
 
 /**
- * Represents the payment status of an order.
- * Tracks the state of payment processing.
+ * Payment status for orders.
+ * Updated for Stripe integration with additional states.
  */
 public enum PaymentStatus {
 
   /**
-   * Payment not yet initiated or awaiting payment.
-   * Initial state for new orders.
+   * Payment not yet initiated.
+   * Order created but payment process not started.
    */
-  PENDING("Pending", "Awaiting payment"),
+  PENDING("Pending", "Payment not yet initiated"),
 
   /**
-   * Payment is being processed.
-   * Waiting for payment gateway confirmation.
+   * Payment Intent created, awaiting customer action.
+   * Customer needs to complete payment on frontend.
+   */
+  AWAITING_PAYMENT("Awaiting Payment", "Waiting for customer to complete payment"),
+
+  /**
+   * Payment is being processed by Stripe.
    */
   PROCESSING("Processing", "Payment is being processed"),
 
   /**
-   * Payment successfully completed.
-   * Funds have been captured.
+   * Payment completed successfully.
    */
-  PAID("Paid", "Payment successful"),
+  PAID("Paid", "Payment completed successfully"),
 
   /**
-   * Payment attempt failed.
-   * Card declined, insufficient funds, etc.
+   * Payment failed (declined, insufficient funds, etc.).
    */
   FAILED("Failed", "Payment failed"),
 
   /**
-   * Full refund has been issued.
-   * All funds returned to customer.
+   * Payment was cancelled by user or system.
    */
-  REFUNDED("Refunded", "Payment refunded"),
+  CANCELLED("Cancelled", "Payment was cancelled"),
 
   /**
-   * Partial refund has been issued.
-   * Some funds returned to customer.
+   * Full refund has been processed.
    */
-  PARTIALLY_REFUNDED("Partially Refunded", "Partial refund issued");
+  REFUNDED("Refunded", "Full refund processed"),
+
+  /**
+   * Partial refund has been processed.
+   */
+  PARTIALLY_REFUNDED("Partially Refunded", "Partial refund processed"),
+
+  /**
+   * Refund is pending processing.
+   */
+  REFUND_PENDING("Refund Pending", "Refund is being processed"),
+
+  /**
+   * Payment requires additional authentication (3D Secure).
+   */
+  REQUIRES_ACTION("Requires Action", "Additional authentication required");
 
   private final String displayName;
   private final String description;
@@ -59,23 +75,31 @@ public enum PaymentStatus {
   }
 
   /**
-   * Check if payment has been completed successfully.
+   * Check if this status indicates payment was successful.
    */
   public boolean isPaid() {
     return this == PAID || this == PARTIALLY_REFUNDED;
   }
 
   /**
-   * Check if payment is still in progress.
+   * Check if this status indicates payment is complete (terminal state for payment).
    */
-  public boolean isInProgress() {
-    return this == PENDING || this == PROCESSING;
+  public boolean isTerminal() {
+    return this == PAID || this == FAILED || this == CANCELLED ||
+        this == REFUNDED || this == PARTIALLY_REFUNDED;
   }
 
   /**
-   * Check if refund is possible from this status.
+   * Check if this status allows refund.
    */
-  public boolean isRefundable() {
+  public boolean canRefund() {
     return this == PAID || this == PARTIALLY_REFUNDED;
+  }
+
+  /**
+   * Check if payment can be retried.
+   */
+  public boolean canRetry() {
+    return this == FAILED || this == CANCELLED || this == PENDING;
   }
 }

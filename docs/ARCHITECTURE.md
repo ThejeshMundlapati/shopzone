@@ -18,19 +18,30 @@
 │  │ Controller  │  │ Controller  │  │ Controller  │             │
 │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘             │
 │         │                │                │                    │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │  Payment    │  │  Webhook    │  │   Admin     │             │
+│  │ Controller  │  │ Controller  │  │ Controller  │             │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘             │
+│         │                │                │                    │
 │  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐             │
 │  │   Auth      │  │  Product    │  │   Order     │             │
 │  │  Service    │  │  Service    │  │  Service    │             │
 │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘             │
 │         │                │                │                    │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │  Payment    │  │  Refund     │  │  Stripe     │             │
+│  │  Service    │  │  Service    │  │  Service    │             │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘             │
+│         │                │                │                    │
 ├─────────┼────────────────┼────────────────┼────────────────────┤
 │         ▼                ▼                ▼                    │
-│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
-│  │ PostgreSQL  │  │  MongoDB    │  │   Redis     │             │
-│  │   Users     │  │  Products   │  │   Cart      │             │
-│  │   Orders    │  │ Categories  │  │  Wishlist   │             │
-│  │  Addresses  │  │             │  │  Sessions   │             │
-│  └─────────────┘  └─────────────┘  └─────────────┘             │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌────────┐ │
+│  │ PostgreSQL  │  │  MongoDB    │  │   Redis     │  │ Stripe │ │
+│  │   Users     │  │  Products   │  │   Cart      │  │  API   │ │
+│  │   Orders    │  │ Categories  │  │  Wishlist   │  │        │ │
+│  │  Payments   │  │             │  │  Sessions   │  │        │ │
+│  │  Addresses  │  │             │  │             │  │        │ │
+│  └─────────────┘  └─────────────┘  └─────────────┘  └────────┘ │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -44,9 +55,10 @@ We use different databases for different purposes:
 
 | Database | Use Case | Why |
 |----------|----------|-----|
-| **PostgreSQL** | Users, Orders, Addresses | ACID compliance, relational data, transactions |
+| **PostgreSQL** | Users, Orders, Payments, Addresses | ACID compliance, relational data, transactions |
 | **MongoDB** | Products, Categories | Flexible schema, nested data, fast reads |
 | **Redis** | Cart, Wishlist, Sessions | In-memory speed, TTL support, temporary data |
+| **Stripe** | Payment Processing | PCI compliance, secure payment handling 🆕 |
 
 ---
 
@@ -90,7 +102,7 @@ CREATE TABLE addresses (
 );
 ```
 
-### Orders Table 🆕
+### Orders Table
 ```sql
 CREATE TABLE orders (
     id UUID PRIMARY KEY,
@@ -126,6 +138,7 @@ CREATE TABLE orders (
     shipping_cost DECIMAL(10,2),
     discount_amount DECIMAL(10,2),
     total_amount DECIMAL(10,2),
+    amount_refunded DECIMAL(10,2),                   -- 🆕
     
     -- Notes
     customer_notes TEXT,
@@ -133,14 +146,17 @@ CREATE TABLE orders (
     cancellation_reason TEXT,
     cancelled_by VARCHAR(20),
     
-    -- Payment
+    -- Payment (Stripe) 🆕
     payment_method VARCHAR(50),
     payment_id VARCHAR(100),
+    stripe_payment_intent_id VARCHAR(100),           -- 🆕
+    stripe_charge_id VARCHAR(100),                   -- 🆕
+    receipt_url VARCHAR(500),                        -- 🆕
     
     -- Timestamps
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
-    paid_at TIMESTAMP,
+    paid_at TIMESTAMP,                               -- 🆕
     confirmed_at TIMESTAMP,
     shipped_at TIMESTAMP,
     delivered_at TIMESTAMP,
@@ -148,7 +164,7 @@ CREATE TABLE orders (
 );
 ```
 
-### Order Items Table 🆕
+### Order Items Table
 ```sql
 CREATE TABLE order_items (
     id UUID PRIMARY KEY,
@@ -168,6 +184,57 @@ CREATE TABLE order_items (
     effective_price DECIMAL(10,2),
     quantity INTEGER,
     total_price DECIMAL(10,2)
+);
+```
+
+### Payments Table 🆕
+```sql
+CREATE TABLE payments (
+    id UUID PRIMARY KEY,
+    
+    -- Order Reference
+    order_id VARCHAR(50) NOT NULL,
+    order_number VARCHAR(20) NOT NULL,
+    user_id VARCHAR(50) NOT NULL,
+    
+    -- Stripe References
+    stripe_payment_intent_id VARCHAR(100) UNIQUE,
+    stripe_charge_id VARCHAR(100),
+    stripe_customer_id VARCHAR(100),
+    client_secret VARCHAR(500),
+    
+    -- Payment Details
+    amount DECIMAL(10,2) NOT NULL,
+    currency VARCHAR(3) NOT NULL,
+    status VARCHAR(30) NOT NULL,
+    payment_method VARCHAR(30),
+    card_last_four VARCHAR(4),
+    card_brand VARCHAR(20),
+    
+    -- Failure Information
+    failure_code VARCHAR(100),
+    failure_message VARCHAR(500),
+    
+    -- Refund Information
+    amount_refunded DECIMAL(10,2) DEFAULT 0,
+    stripe_refund_id VARCHAR(100),
+    refund_reason VARCHAR(500),
+    
+    -- Metadata
+    receipt_url VARCHAR(500),
+    statement_descriptor VARCHAR(22),
+    
+    -- Timestamps
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    paid_at TIMESTAMP,
+    refunded_at TIMESTAMP,
+    
+    -- Indexes
+    INDEX idx_payment_order_id (order_id),
+    INDEX idx_payment_intent_id (stripe_payment_intent_id),
+    INDEX idx_payment_status (status),
+    INDEX idx_payment_user_id (user_id)
 );
 ```
 
@@ -256,45 +323,124 @@ TTL: 90 days
 
 ---
 
-## Order Flow Architecture 🆕
+## Payment Flow Architecture 🆕
 
-### Checkout Process
+### Payment Intent Flow
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                      CHECKOUT FLOW                              │
+│                      PAYMENT FLOW                               │
 ├─────────────────────────────────────────────────────────────────┤
 │                                                                 │
-│   1. Validate Cart                                              │
+│   1. Place Order (POST /api/checkout/place-order)               │
 │   ┌──────────────────────────────────────────────────────────┐  │
-│   │  • Check cart not empty                                  │  │
-│   │  • Verify products still exist                           │  │
-│   │  • Check stock availability                              │  │
-│   │  • Validate prices haven't changed significantly         │  │
+│   │  • Create order with status PENDING                      │  │
+│   │  • Set payment_status to PENDING                         │  │
+│   │  • Stock NOT reduced yet                                 │  │
+│   │  • Cart cleared                                          │  │
 │   └──────────────────────────────────────────────────────────┘  │
 │                              │                                  │
 │                              ▼                                  │
-│   2. Calculate Totals                                           │
+│   2. Create Payment Intent (POST /api/payments/create-intent)   │
 │   ┌──────────────────────────────────────────────────────────┐  │
-│   │  • Subtotal = Σ(effectivePrice × quantity)               │  │
-│   │  • Tax = subtotal × taxRate (8%)                         │  │
-│   │  • Shipping = $0 if subtotal > $50, else $5.99           │  │
-│   │  • Total = subtotal + tax + shipping                     │  │
+│   │  • Call Stripe PaymentIntent.create()                    │  │
+│   │  • Store Payment record in PostgreSQL                    │  │
+│   │  • Update order with stripePaymentIntentId               │  │
+│   │  • Set payment_status to AWAITING_PAYMENT                │  │
+│   │  • Return clientSecret to frontend                       │  │
 │   └──────────────────────────────────────────────────────────┘  │
 │                              │                                  │
 │                              ▼                                  │
-│   3. Create Order (Transactional)                               │
+│   3. Frontend Payment Confirmation (Stripe.js)                  │
 │   ┌──────────────────────────────────────────────────────────┐  │
-│   │  • Generate order number (ORD-YYYYMMDD-XXXX)             │  │
-│   │  • Snapshot address and product data                     │  │
-│   │  • Save order to PostgreSQL                              │  │
-│   │  • Reduce stock in MongoDB                               │  │
-│   │  • Clear cart in Redis                                   │  │
+│   │  stripe.confirmCardPayment(clientSecret, {               │  │
+│   │    payment_method: { card: cardElement }                 │  │
+│   │  });                                                     │  │
+│   │  • User enters card details                              │  │
+│   │  • Stripe handles 3D Secure if required                  │  │
+│   │  • Payment processed by Stripe                           │  │
+│   └──────────────────────────────────────────────────────────┘  │
+│                              │                                  │
+│                              ▼                                  │
+│   4. Webhook Notification (POST /api/webhooks/stripe)           │
+│   ┌──────────────────────────────────────────────────────────┐  │
+│   │  • Stripe sends payment_intent.succeeded                 │  │
+│   │  • Verify webhook signature                              │  │
+│   │  • Update Payment record (PAID, chargeId, receiptUrl)    │  │
+│   │  • Update Order (CONFIRMED, paidAt)                      │  │
+│   │  • REDUCE STOCK NOW                                      │  │
 │   └──────────────────────────────────────────────────────────┘  │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Order Status State Machine
+### Why Webhooks? 🆕
+
+```
+┌──────────────────────────────────────────────────────────────┐
+│                WHY WEBHOOKS ARE CRITICAL                     │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  Without Webhooks (UNRELIABLE):                              │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │  User → Stripe → Success → Redirect → Your Server      │  │
+│  │                      ↓                                 │  │
+│  │              User closes browser                       │  │
+│  │              Network fails                             │  │
+│  │              ❌ Payment received but order not updated │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                                                              │
+│  With Webhooks (RELIABLE):                                   │
+│  ┌────────────────────────────────────────────────────────┐  │
+│  │  Stripe → Webhook → Your Server                        │  │
+│  │    │                                                   │  │
+│  │    └── Guaranteed delivery (with retries)              │  │
+│  │    └── Signature verification for security             │  │
+│  │    └── Source of truth for payment status              │  │
+│  │    ✅ Payment always properly recorded                 │  │
+│  └────────────────────────────────────────────────────────┘  │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+### Refund Flow 🆕
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                       REFUND FLOW                               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   1. Check Eligibility                                          │
+│   ┌──────────────────────────────────────────────────────────┐  │
+│   │  • Payment status must be PAID                           │  │
+│   │  • Within refund window (30 days default)                │  │
+│   │  • Has refundable amount remaining                       │  │
+│   └──────────────────────────────────────────────────────────┘  │
+│                              │                                  │
+│                              ▼                                  │
+│   2. Process Refund (POST /api/admin/payments/refund)           │
+│   ┌──────────────────────────────────────────────────────────┐  │
+│   │  • Call Stripe Refund.create()                           │  │
+│   │  • Update Payment record (amountRefunded, status)        │  │
+│   │  • Update Order (status, amountRefunded)                 │  │
+│   │  • Optionally restore stock                              │  │
+│   └──────────────────────────────────────────────────────────┘  │
+│                              │                                  │
+│               ┌──────────────┴──────────────┐                   │
+│               ▼                             ▼                   │
+│   ┌─────────────────────┐      ┌─────────────────────┐          │
+│   │   Partial Refund    │      │    Full Refund      │          │
+│   │   ───────────────   │      │    ───────────      │          │
+│   │   Status: PARTIAL   │      │   Status: REFUNDED  │          │
+│   │   More refundable   │      │   Order: CANCELLED  │          │
+│   └─────────────────────┘      └─────────────────────┘          │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Order Status State Machine
+
 ```
                     ┌─────────────┐
                     │   PENDING   │ ◄── Order Created
@@ -304,7 +450,7 @@ TTL: 90 days
               │            │           │
               ▼            ▼           │
         ┌──────────┐ ┌──────────┐      │
-        │CANCELLED │ │CONFIRMED │      │
+        │CANCELLED │ │CONFIRMED │      │ (After payment)
         └──────────┘ └────┬─────┘      │
                           │            │
                           ▼            │
@@ -334,40 +480,76 @@ TTL: 90 days
 
 ---
 
-## Cross-Database Transaction Handling 🆕
+## Payment Status State Machine 🆕
+
+```
+                    ┌─────────────┐
+                    │   PENDING   │ ◄── Order Created
+                    └──────┬──────┘
+                           │
+                           ▼
+               ┌───────────────────────┐
+               │   AWAITING_PAYMENT    │ ◄── Payment Intent Created
+               └───────────┬───────────┘
+                           │
+              ┌────────────┼────────────┐
+              │            │            │
+              ▼            ▼            ▼
+        ┌──────────┐ ┌──────────┐ ┌──────────┐
+        │  FAILED  │ │   PAID   │ │CANCELLED │
+        └──────────┘ └────┬─────┘ └──────────┘
+                          │
+              ┌───────────┴───────────┐
+              │                       │
+              ▼                       ▼
+     ┌─────────────── ──┐      ┌──────────┐
+     │PARTIALLY_REFUNDED│      │ REFUNDED │
+     └────────┬────── ──┘      └──────────┘
+              │
+              ▼
+        ┌──────────┐
+        │ REFUNDED │
+        └──────────┘
+```
+
+---
+
+## Cross-Database Transaction Handling
 
 Since we use multiple databases, we handle distributed transactions carefully:
 
 ```
 ┌────────────────────────────────────────────────────────────────┐
-│                  Order Placement Transaction                   │
+│              Payment Success Transaction (Webhook)             │
 ├────────────────────────────────────────────────────────────────┤
 │                                                                │
 │  @Transactional (PostgreSQL)                                   │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │  1. Create Order ──► 2. Reduce Stock ──► 3. Clear Cart  │   │
-│  │     (PostgreSQL)        (MongoDB)          (Redis)      │   │
+│  │  1. Update Payment → 2. Update Order → 3. Reduce Stock  │   │
+│  │     (PostgreSQL)       (PostgreSQL)       (MongoDB)     │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                              │                                 │
 │                              ▼                                 │
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │  If MongoDB stock reduction fails:                      │   │
-│  │  - PostgreSQL order is rolled back automatically        │   │
-│  │  - Application throws exception                         │   │
-│  │  - User sees error message                              │   │
+│  │  - PostgreSQL changes are rolled back automatically     │   │
+│  │  - Webhook returns error (Stripe will retry)            │   │
+│  │  - Log error for manual investigation                   │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                                                                │
 └────────────────────────────────────────────────────────────────┘
 ```
 
 ### Compensation Pattern
-For order cancellation, we use compensation:
+For refunds, we use compensation:
 ```
-Cancel Order:
-1. Update order status to CANCELLED (PostgreSQL)
-2. Restore stock in MongoDB (compensation)
-3. Both operations succeed → Success
-4. Stock restore fails → Log error, manual intervention needed
+Process Refund:
+1. Call Stripe Refund API (external)
+2. Update Payment record (PostgreSQL)
+3. Update Order status (PostgreSQL)
+4. Restore stock in MongoDB (optional, compensation)
+5. All succeed → Success
+6. Stock restore fails → Log error, manual intervention needed
 ```
 
 ---
@@ -391,12 +573,29 @@ Cancel Order:
 ◄──────────────────────────────────┘
 ```
 
+### Webhook Security 🆕
+```
+┌──────────┐   Webhook + Signature   ┌──────────┐
+│  Stripe  │ ──────────────────────► │  Server  │
+└──────────┘                         └────┬─────┘
+                                          │
+                                   Verify Signature
+                                   using Webhook Secret
+                                          │
+                              ┌───────────┴───────────┐
+                              │                       │
+                          Valid                   Invalid
+                              │                       │
+                              ▼                       ▼
+                        Process Event           Reject (401)
+```
+
 ### Authorization Levels
 | Role | Permissions |
 |------|-------------|
-| PUBLIC | View products, categories |
-| CUSTOMER | Cart, wishlist, orders, addresses |
-| ADMIN | All + product/category CRUD + order management |
+| PUBLIC | View products, categories, Stripe webhooks |
+| CUSTOMER | Cart, wishlist, orders, addresses, payments |
+| ADMIN | All + product/category CRUD + order/payment management + refunds |
 
 ---
 
@@ -409,6 +608,15 @@ shopzone:
     free-shipping-threshold: 50.00    # Free shipping over $50
     flat-shipping-rate: 5.99          # Otherwise $5.99
     cancellation-window-hours: 24     # Cancel within 24hrs
+  
+  payment:                            # 🆕
+    refund-window-days: 30            # Refund within 30 days
+
+stripe:                               # 🆕
+  secret-key: ${STRIPE_SECRET_KEY}
+  public-key: ${STRIPE_PUBLIC_KEY}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET}
+  currency: usd
 ```
 
 ---
@@ -434,19 +642,24 @@ shopzone:
 - `fromEntity()` methods in DTOs
 - Clean entity-to-DTO conversion
 
-### 5. Snapshot Pattern 🆕
+### 5. Snapshot Pattern
 - Order preserves address/product data at order time
 - Protects against future changes
 - Maintains historical accuracy
 
-### 6. State Machine Pattern 🆕
+### 6. State Machine Pattern
 - Order status transitions validated
+- Payment status transitions validated 🆕
 - Invalid transitions rejected
-- Clear workflow enforcement
+
+### 7. Webhook Handler Pattern 🆕
+- Idempotent event processing
+- Signature verification
+- Event type routing
 
 ---
 
-## Future Architecture (Microservices - Phase 2+)
+## Future Architecture (Microservices - Phase 3+)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
