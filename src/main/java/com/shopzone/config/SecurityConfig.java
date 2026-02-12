@@ -64,6 +64,9 @@ public class SecurityConfig {
                 "/api/auth/verify/**"
             ).permitAll()
 
+
+            .requestMatchers("/api/webhooks/stripe").permitAll()
+
             .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
 
@@ -74,6 +77,8 @@ public class SecurityConfig {
 
             .requestMatchers("/api/checkout/**").authenticated()
             .requestMatchers("/api/orders/**").authenticated()
+
+            .requestMatchers("/api/payments/**").authenticated()
 
             .requestMatchers("/api/admin/**").hasRole("ADMIN")
             .requestMatchers(HttpMethod.POST, "/api/products/**").hasRole("ADMIN")
@@ -121,7 +126,12 @@ public class SecurityConfig {
         "http://localhost:5173"
     ));
     configuration.setAllowedMethods(Arrays.asList("GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"));
-    configuration.setAllowedHeaders(Arrays.asList("Authorization", "Content-Type", "X-Requested-With"));
+    configuration.setAllowedHeaders(Arrays.asList(
+        "Authorization",
+        "Content-Type",
+        "X-Requested-With",
+        "Stripe-Signature"
+    ));
     configuration.setExposedHeaders(List.of("Authorization"));
     configuration.setAllowCredentials(true);
     configuration.setMaxAge(3600L);

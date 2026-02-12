@@ -4,7 +4,7 @@ import com.shopzone.dto.request.CheckoutRequest;
 import com.shopzone.dto.response.ApiResponse;
 import com.shopzone.dto.response.CheckoutPreviewResponse;
 import com.shopzone.dto.response.CheckoutValidationResponse;
-import com.shopzone.dto.response.OrderResponse;
+import com.shopzone.dto.response.OrderWithPaymentResponse;
 import com.shopzone.model.User;
 import com.shopzone.service.CheckoutService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -65,22 +65,25 @@ public class CheckoutController {
   }
 
   @PostMapping("/place-order")
-  @Operation(summary = "Place order",
-      description = "Create order from cart, reserve stock, and clear cart")
+  @Operation(summary = "Place order with payment",
+      description = "Create order from cart and get Stripe payment intent. Stock is reserved when payment succeeds.")
   @ApiResponses(value = {
-      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Order placed successfully"),
+      @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Order placed with payment intent"),
       @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "400", description = "Cart has validation errors"),
       @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "401", description = "Not authenticated"),
       @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "404", description = "Address not found")
   })
-  public ResponseEntity<ApiResponse<OrderResponse>> placeOrder(
+  public ResponseEntity<ApiResponse<OrderWithPaymentResponse>> placeOrder(
       @AuthenticationPrincipal User user,
       @Valid @RequestBody CheckoutRequest request) {
 
     String userId = user.getId().toString();
-    OrderResponse order = checkoutService.placeOrder(userId, request);
+
+    OrderWithPaymentResponse response = checkoutService.placeOrderWithPayment(userId, request);
+
     return ResponseEntity.ok(ApiResponse.success(
-        "Order placed successfully! Order number: " + order.getOrderNumber(),
-        order));
+        "Order placed! Complete payment to confirm. Order number: " +
+            response.getOrder().getOrderNumber(),
+        response));
   }
 }
