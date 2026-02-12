@@ -9,6 +9,7 @@
 | Docker | 20+ | [Docker Desktop](https://www.docker.com/products/docker-desktop/) |
 | Git | 2.30+ | [Git](https://git-scm.com/) |
 | IDE | Any | IntelliJ IDEA recommended |
+| Stripe CLI | Latest | [Stripe CLI](https://stripe.com/docs/stripe-cli) 🆕 |
 
 ---
 
@@ -39,7 +40,15 @@ xxxx           mongo:7        0.0.0.0:27017->27017/tcp  shopzone-mongodb
 xxxx           redis:7        0.0.0.0:6379->6379/tcp    shopzone-redis
 ```
 
-### 4. Run Application
+### 4. Set Up Stripe (Week 5+) 🆕
+```bash
+# Set environment variables
+export STRIPE_SECRET_KEY=sk_test_your_key_here
+export STRIPE_PUBLIC_KEY=pk_test_your_key_here
+export STRIPE_WEBHOOK_SECRET=whsec_your_secret_here
+```
+
+### 5. Run Application
 ```bash
 # From project root
 ./mvnw spring-boot:run
@@ -49,12 +58,64 @@ Or in IntelliJ:
 - Open `ShopzoneApplication.java`
 - Click the green ▶️ Run button
 
-### 5. Access Application
+### 6. Access Application
 | Service | URL |
 |---------|-----|
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | API Docs | http://localhost:8080/api-docs |
 | Redis Commander | http://localhost:8081 |
+
+---
+
+## Stripe Setup (Week 5) 🆕
+
+### Step 1: Create Stripe Account
+1. Go to https://dashboard.stripe.com/register
+2. Create a FREE account
+3. Complete email verification
+
+### Step 2: Get API Keys
+1. Go to **Developers → API keys**
+2. Copy your **Test** keys:
+   - Publishable key: `pk_test_...`
+   - Secret key: `sk_test_...`
+
+> ⚠️ **NEVER** use Live keys for development!
+
+### Step 3: Install Stripe CLI
+```bash
+# macOS
+brew install stripe/stripe-cli/stripe
+
+# Windows (with Scoop)
+scoop install stripe
+
+# Linux
+# Download from https://github.com/stripe/stripe-cli/releases
+```
+
+### Step 4: Login to Stripe CLI
+```bash
+stripe login
+```
+
+### Step 5: Forward Webhooks to Local Server
+```bash
+# In a new terminal, run:
+stripe listen --forward-to localhost:8080/api/webhooks/stripe
+
+# Copy the webhook signing secret (whsec_...)
+# Set it as environment variable:
+export STRIPE_WEBHOOK_SECRET=whsec_your_secret_here
+```
+
+### Step 6: Test Webhook Connection
+```bash
+# Trigger a test event
+stripe trigger payment_intent.succeeded
+```
+
+You should see the event received in your application logs.
 
 ---
 
@@ -160,13 +221,24 @@ cloudinary:
   api-key: your-api-key
   api-secret: your-api-secret
 
-# Order Configuration 🆕
+# Stripe Configuration 🆕
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY:sk_test_default}
+  public-key: ${STRIPE_PUBLIC_KEY:pk_test_default}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_default}
+  currency: usd
+
+# Order Configuration
 shopzone:
   order:
     tax-rate: 0.08                    # 8% tax
     free-shipping-threshold: 50.00    # Free shipping over $50
     flat-shipping-rate: 5.99          # Otherwise $5.99
     cancellation-window-hours: 24     # Cancel within 24 hours
+  
+  # Payment Configuration 🆕
+  payment:
+    refund-window-days: 30            # Refund within 30 days
 
 # Logging
 logging:
@@ -200,9 +272,15 @@ export CLOUDINARY_CLOUD_NAME=your-cloud
 export CLOUDINARY_API_KEY=your-key
 export CLOUDINARY_API_SECRET=your-secret
 
+# Stripe 🆕
+export STRIPE_SECRET_KEY=sk_live_your_live_key   # Use LIVE keys in production!
+export STRIPE_PUBLIC_KEY=pk_live_your_live_key
+export STRIPE_WEBHOOK_SECRET=whsec_your_production_webhook_secret
+
 # Order Settings
 export ORDER_TAX_RATE=0.08
 export ORDER_FREE_SHIPPING_THRESHOLD=50.00
+export PAYMENT_REFUND_WINDOW_DAYS=30
 ```
 
 ---
@@ -260,64 +338,51 @@ docker exec -it shopzone-postgres psql -U shopzone_admin -d shopzone \
 # 3. Login again to get new token with ADMIN role
 ```
 
-### Option 2: Direct SQL
-```sql
--- Connect to PostgreSQL
-docker exec -it shopzone-postgres psql -U shopzone_admin -d shopzone
-
--- Insert admin user (password: Admin123!)
-INSERT INTO users (id, email, password, first_name, last_name, role, enabled, email_verified, created_at, updated_at)
-VALUES (
-  gen_random_uuid(),
-  'admin@shopzone.com',
-  '$2a$10$N9qo8uLOickgx2ZMRZoMyeXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX',
-  'Admin',
-  'User',
-  'ADMIN',
-  true,
-  true,
-  NOW(),
-  NOW()
-);
-```
-
 ---
 
-## Testing the Application
+## Testing Payments 🆕
 
-### 1. Health Check
+### Test Cards
+
+| Card Number | Scenario |
+|-------------|----------|
+| `4242 4242 4242 4242` | Successful payment |
+| `4000 0000 0000 0002` | Declined |
+| `4000 0025 0000 3155` | Requires 3D Secure |
+| `4000 0000 0000 9995` | Insufficient funds |
+| `4000 0000 0000 0069` | Expired card |
+
+Use any future expiry date (e.g., 12/34) and any 3-digit CVC.
+
+### Test Payment Flow
+
+1. **Create an order:**
 ```bash
-curl http://localhost:8080/actuator/health
+POST /api/checkout/place-order
+{
+  "shippingAddressId": "your-address-id"
+}
 ```
 
-### 2. Register User
+2. **Create payment intent:**
 ```bash
-curl -X POST http://localhost:8080/api/auth/register \
-  -H "Content-Type: application/json" \
-  -d '{
-    "firstName": "John",
-    "lastName": "Doe",
-    "email": "john@example.com",
-    "password": "Password123!",
-    "phone": "1234567890"
-  }'
+POST /api/payments/create-intent
+{
+  "orderNumber": "ORD-20260131-XXXX"
+}
 ```
 
-### 3. Login
+3. **Simulate payment success (via Stripe CLI):**
 ```bash
-curl -X POST http://localhost:8080/api/auth/login \
-  -H "Content-Type: application/json" \
-  -d '{
-    "email": "john@example.com",
-    "password": "Password123!"
-  }'
+# The webhook will be triggered automatically when using Stripe.js
+# For testing without frontend, trigger manually:
+stripe trigger payment_intent.succeeded --add payment_intent:metadata.orderNumber=ORD-20260131-XXXX
 ```
 
-### 4. Use Swagger UI
-1. Open http://localhost:8080/swagger-ui.html
-2. Click "Authorize"
-3. Enter: `Bearer <your-token>`
-4. Test endpoints
+4. **Check payment status:**
+```bash
+GET /api/payments/ORD-20260131-XXXX
+```
 
 ---
 
@@ -349,6 +414,36 @@ docker logs shopzone-mongodb
 docker logs shopzone-redis
 ```
 
+### Stripe Webhook Not Received 🆕
+```bash
+# Ensure Stripe CLI is listening
+stripe listen --forward-to localhost:8080/api/webhooks/stripe
+
+# Check the webhook secret matches
+echo $STRIPE_WEBHOOK_SECRET
+
+# Check application logs for signature verification errors
+```
+
+### Invalid Webhook Signature 🆕
+```bash
+# The webhook secret from `stripe listen` changes each session
+# Copy the new secret and update environment variable:
+export STRIPE_WEBHOOK_SECRET=whsec_new_secret_here
+
+# Restart the application
+```
+
+### Payment History Returns 500 Error 🆕
+```bash
+# Ensure you're using valid sort fields:
+# Valid: createdAt, amount, status, paidAt
+# Invalid: string, any other field
+
+# Correct request:
+GET /api/payments/history?page=0&size=10&sortBy=createdAt
+```
+
 ### MongoDB Authentication Failed
 ```bash
 # Recreate user
@@ -367,7 +462,7 @@ docker exec -it shopzone-mongodb mongosh -u root -p rootpassword --eval "
 2. Check "Enable annotation processing"
 3. File → Invalidate Caches → Invalidate and Restart
 
-### Order Query Fails with Null Parameters 🆕
+### Order Query Fails with Null Parameters
 If you see `could not determine data type of parameter` error:
 - Ensure `OrderRepository.findWithFilters` uses `CAST(:startDate AS timestamp)`
 - This is a PostgreSQL issue with null LocalDateTime parameters
@@ -379,6 +474,9 @@ If you see `could not determine data type of parameter` error:
 ### Stop Spring Boot
 - IntelliJ: Click red 🟥 Stop button
 - Terminal: Press `Ctrl + C`
+
+### Stop Stripe CLI 🆕
+- Press `Ctrl + C` in the terminal running `stripe listen`
 
 ### Stop Databases
 ```bash
@@ -401,7 +499,7 @@ docker-compose down -v  # Removes all data!
 ./mvnw test
 
 # Specific test class
-./mvnw test -Dtest=OrderServiceTest
+./mvnw test -Dtest=PaymentServiceTest
 
 # With coverage
 ./mvnw test jacoco:report
@@ -416,7 +514,10 @@ docker-compose down -v  # Removes all data!
 docker exec -it shopzone-postgres psql -U shopzone_admin -d shopzone
 
 # View orders
-SELECT order_number, status, total_amount FROM orders;
+SELECT order_number, status, payment_status, total_amount FROM orders;
+
+# View payments 🆕
+SELECT order_number, status, amount, stripe_payment_intent_id FROM payments;
 
 # View MongoDB data
 docker exec -it shopzone-mongodb mongosh -u root -p rootpassword
@@ -430,3 +531,30 @@ docker exec -it shopzone-redis redis-cli
 KEYS *
 GET "cart:user-id"
 ```
+
+---
+
+## Stripe Dashboard Verification 🆕
+
+After testing, check in Stripe Dashboard:
+1. **Payments** → See all test payments
+2. **Customers** → Customer records (if created)
+3. **Developers → Logs** → API request logs
+4. **Developers → Webhooks** → Webhook delivery attempts
+5. **Developers → Events** → All events
+
+---
+
+## Production Checklist 🆕
+
+Before going live with payments:
+
+- [ ] Switch to **Live** API keys (`sk_live_`, `pk_live_`)
+- [ ] Configure production webhook endpoint in Stripe Dashboard
+- [ ] Update webhook signing secret for production
+- [ ] Remove test card validation
+- [ ] Enable HTTPS (required for Stripe)
+- [ ] Set up error alerting/monitoring
+- [ ] Configure dispute handling
+- [ ] Test with real cards (small amounts)
+- [ ] Review Stripe's [go-live checklist](https://stripe.com/docs/development/checklist)

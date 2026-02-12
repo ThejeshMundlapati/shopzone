@@ -201,7 +201,7 @@ PATCH /api/addresses/{id}/set-default
 
 ---
 
-## 🛍️ Checkout Endpoints 🆕
+## 🛍️ Checkout Endpoints
 
 ### Validate Cart
 ```http
@@ -275,7 +275,7 @@ Response: 201 Created
 
 ---
 
-## 📋 User Order Endpoints 🆕
+## 📋 User Order Endpoints
 
 ### Get My Orders
 ```http
@@ -324,18 +324,7 @@ Response: 200 OK
     },
     "trackingNumber": "1Z999AA10123456784",
     "shippingCarrier": "UPS",
-    "items": [
-      {
-        "productId": "product-id",
-        "productName": "iPhone 15",
-        "quantity": 2,
-        "unitPrice": 999.99,
-        "effectivePrice": 949.99,
-        "totalPrice": 1899.98,
-        "hasDiscount": true,
-        "discountPercentage": 5
-      }
-    ],
+    "items": [...],
     "subtotal": 1899.98,
     "taxAmount": 151.99,
     "shippingCost": 0.00,
@@ -365,17 +354,6 @@ Response: 200 OK
 }
 ```
 
-### Get Order Count
-```http
-GET /api/orders/count
-
-Response: 200 OK
-{
-  "success": true,
-  "data": 5
-}
-```
-
 ### Cancel Order
 ```http
 POST /api/orders/{orderNumber}/cancel
@@ -401,9 +379,177 @@ Response: 200 OK
 
 ---
 
-## 👑 Admin Order Endpoints 🆕
+## 💳 Payment Endpoints 🆕
 
-> **Note:** All admin endpoints require `ADMIN` role
+### Create Payment Intent
+
+Creates a Stripe Payment Intent for an existing order.
+
+```http
+POST /api/payments/create-intent
+
+Request:
+{
+  "orderNumber": "ORD-20260129-0001",
+  "savePaymentMethod": false,
+  "receiptEmail": "customer@example.com"
+}
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Payment intent created. Use clientSecret with Stripe.js to complete payment.",
+  "data": {
+    "paymentIntentId": "pi_3MtwBwLkdIwHu7ix28a3tqPa",
+    "clientSecret": "pi_3MtwBwLkdIwHu7ix28a3tqPa_secret_YrKJUKribcBjcG8HVhfZluoGH",
+    "publishableKey": "pk_test_...",
+    "orderNumber": "ORD-20260129-0001",
+    "amount": 99.99,
+    "currency": "usd",
+    "status": "AWAITING_PAYMENT"
+  }
+}
+```
+
+**Error Responses:**
+- `400 Bad Request` - Order already paid or invalid
+- `401 Unauthorized` - Not authenticated
+- `404 Not Found` - Order not found
+
+---
+
+### Get Payment Status
+
+```http
+GET /api/payments/{orderNumber}
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Payment status retrieved",
+  "data": {
+    "id": "pay_abc123",
+    "orderId": "ord_xyz789",
+    "orderNumber": "ORD-20260129-0001",
+    "stripePaymentIntentId": "pi_3MtwBwLkdIwHu7ix28a3tqPa",
+    "stripeChargeId": "ch_3MtwBwLkdIwHu7ix0qHw",
+    "amount": 99.99,
+    "currency": "usd",
+    "status": "PAID",
+    "paymentMethod": "CARD",
+    "cardLastFour": "4242",
+    "cardBrand": "visa",
+    "amountRefunded": 0.00,
+    "refundableAmount": 99.99,
+    "receiptUrl": "https://pay.stripe.com/receipts/...",
+    "createdAt": "2026-01-29T10:30:00Z",
+    "paidAt": "2026-01-29T10:32:00Z"
+  }
+}
+```
+
+---
+
+### Get Payment History
+
+```http
+GET /api/payments/history?page=0&size=10&sortBy=createdAt&sortDir=desc
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Payment history retrieved",
+  "data": {
+    "content": [
+      {
+        "id": "pay_abc123",
+        "orderNumber": "ORD-20260129-0001",
+        "amount": 99.99,
+        "currency": "usd",
+        "status": "PAID",
+        "paymentMethod": "CARD",
+        "cardLastFour": "4242",
+        "cardBrand": "visa",
+        "createdAt": "2026-01-29T10:30:00Z",
+        "paidAt": "2026-01-29T10:32:00Z"
+      }
+    ],
+    "totalElements": 5,
+    "totalPages": 1,
+    "number": 0
+  }
+}
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| page | integer | 0 | Page number |
+| size | integer | 10 | Page size |
+| sortBy | string | createdAt | Sort field (createdAt, amount, status, paidAt) |
+| sortDir | string | desc | Sort direction (asc, desc) |
+
+---
+
+### Check Refund Eligibility
+
+```http
+GET /api/payments/{orderNumber}/refund-eligibility
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Refund eligibility checked",
+  "data": {
+    "eligible": true,
+    "refundableAmount": 99.99,
+    "message": "Refund available. 28 days remaining in refund window."
+  }
+}
+```
+
+---
+
+## 🔗 Webhook Endpoint 🆕
+
+### Stripe Webhook Handler
+
+Receives events from Stripe when payment status changes.
+
+```http
+POST /api/webhooks/stripe
+```
+
+**Headers Required:**
+```
+Stripe-Signature: t=1234567890,v1=signature_here
+Content-Type: application/json
+```
+
+**Important Notes:**
+- This endpoint is **PUBLIC** (no authentication required)
+- Stripe signature is verified for security
+- Raw request body is required for signature verification
+
+**Events Handled:**
+
+| Event | Action |
+|-------|--------|
+| `payment_intent.succeeded` | Confirm order, reduce stock |
+| `payment_intent.payment_failed` | Update status to FAILED |
+| `payment_intent.canceled` | Update status to CANCELLED |
+| `charge.refunded` | Track refund (audit) |
+| `charge.dispute.created` | Log dispute alert |
+
+**Response:**
+```
+200 OK - "Webhook processed"
+```
+
+---
+
+## 👑 Admin Order Endpoints
 
 ### Get All Orders
 ```http
@@ -413,41 +559,18 @@ Response: 200 OK
 {
   "success": true,
   "data": {
-    "content": [
-      {
-        "id": "uuid",
-        "orderNumber": "ORD-20260121-XXXX",
-        "userEmail": "john@example.com",
-        "userFullName": "John Doe",
-        "status": "PENDING",
-        "paymentStatus": "PAID",
-        "totalAmount": 2051.97,
-        "totalItems": 2,
-        "createdAt": "2026-01-21T10:30:00"
-      }
-    ],
+    "content": [...],
     "totalElements": 50,
     "totalPages": 3
   }
 }
 ```
 
-### Get Order Details (Admin)
-```http
-GET /api/admin/orders/{orderNumber}
-```
-
 ### Update Order Status
 ```http
 PATCH /api/admin/orders/{orderNumber}/status
 
-Request (Confirm):
-{
-  "status": "CONFIRMED",
-  "adminNotes": "Payment verified"
-}
-
-Request (Ship - requires tracking):
+Request (Ship):
 {
   "status": "SHIPPED",
   "trackingNumber": "1Z999AA10123456784",
@@ -459,13 +582,7 @@ Response: 200 OK
 {
   "success": true,
   "message": "Order status updated to SHIPPED",
-  "data": {
-    "orderNumber": "ORD-20260121-XXXX",
-    "status": "SHIPPED",
-    "previousStatus": "PROCESSING",
-    "trackingNumber": "1Z999AA10123456784",
-    "shippingCarrier": "UPS"
-  }
+  "data": {...}
 }
 ```
 
@@ -481,56 +598,146 @@ Response: 200 OK
     "ordersToday": 12,
     "ordersThisWeek": 45,
     "ordersThisMonth": 150,
-    "ordersByStatus": {
-      "PENDING": 10,
-      "CONFIRMED": 15,
-      "PROCESSING": 8,
-      "SHIPPED": 25,
-      "DELIVERED": 80,
-      "CANCELLED": 12
-    },
+    "ordersByStatus": {...},
     "totalRevenue": 125000.00,
     "averageOrderValue": 950.00
   }
 }
 ```
 
-### Search Orders
+---
+
+## 👑 Admin Payment Endpoints 🆕
+
+### Get All Payments (Admin)
+
 ```http
-GET /api/admin/orders/search?q=john
+GET /api/admin/payments?status=PAID&page=0&size=20&sortBy=createdAt&sortDir=desc
 
 Response: 200 OK
 {
   "success": true,
   "data": {
-    "content": [...],
-    "totalElements": 5
+    "content": [
+      {
+        "id": "pay_abc123",
+        "orderNumber": "ORD-20260129-0001",
+        "userId": "user-uuid",
+        "amount": 99.99,
+        "currency": "usd",
+        "status": "PAID",
+        "paymentMethod": "CARD",
+        "cardLastFour": "4242",
+        "cardBrand": "visa",
+        "amountRefunded": 0.00,
+        "createdAt": "2026-01-29T10:30:00Z",
+        "paidAt": "2026-01-29T10:32:00Z"
+      }
+    ],
+    "totalElements": 100,
+    "totalPages": 5
   }
 }
 ```
 
 ---
 
-## 📊 Order Status Flow
+### Process Refund (Admin)
 
+Process a full or partial refund.
+
+```http
+POST /api/admin/payments/refund
+
+Request (Full Refund):
+{
+  "orderNumber": "ORD-20260129-0001",
+  "reason": "Customer requested cancellation",
+  "restoreStock": true
+}
+
+Request (Partial Refund):
+{
+  "orderNumber": "ORD-20260129-0001",
+  "amount": 25.00,
+  "reason": "Item damaged in shipping",
+  "restoreStock": false
+}
+
+Response: 200 OK
+{
+  "success": true,
+  "message": "Full refund processed successfully",
+  "data": {
+    "refundId": "re_3MtwBwLkdIwHu7ix0qHw",
+    "orderNumber": "ORD-20260129-0001",
+    "amountRefunded": 99.99,
+    "totalRefunded": 99.99,
+    "remainingRefundable": 0.00,
+    "status": "succeeded",
+    "currency": "usd",
+    "reason": "Customer requested cancellation",
+    "stockRestored": true,
+    "orderStatus": "CANCELLED",
+    "paymentStatus": "REFUNDED",
+    "refundedAt": "2026-01-29T14:00:00Z"
+  }
+}
+```
+
+**Error Responses:**
+- `400 Bad Request` - Cannot refund (not paid, window expired, amount exceeds refundable)
+- `404 Not Found` - Order/payment not found
+
+---
+
+### Get Payment Statistics (Admin)
+
+```http
+GET /api/admin/payments/stats
+
+Response: 200 OK
+{
+  "success": true,
+  "data": {
+    "totalPayments": 150,
+    "successfulPayments": 140,
+    "failedPayments": 10,
+    "totalRevenue": 125000.00,
+    "totalRefunded": 5000.00
+  }
+}
+```
+
+---
+
+## 📊 Order & Payment Status Flow 🆕
+
+### Order Status Flow
 ```
 PENDING → CONFIRMED → PROCESSING → SHIPPED → DELIVERED
     ↓         ↓           ↓           ↓
 CANCELLED CANCELLED   CANCELLED   RETURNED → REFUNDED
 ```
 
+### Payment Status Flow
+```
+PENDING → AWAITING_PAYMENT → PAID → PARTIALLY_REFUNDED → REFUNDED
+              ↓                ↓
+           FAILED          CANCELLED
+```
+
 ### Valid Status Transitions
 
 | From | Can Transition To |
 |------|-------------------|
-| PENDING | CONFIRMED, CANCELLED |
-| CONFIRMED | PROCESSING, CANCELLED |
-| PROCESSING | SHIPPED, CANCELLED |
-| SHIPPED | DELIVERED, RETURNED |
-| DELIVERED | RETURNED |
-| RETURNED | REFUNDED |
-| CANCELLED | - (terminal) |
-| REFUNDED | - (terminal) |
+| PENDING | AWAITING_PAYMENT, CANCELLED |
+| AWAITING_PAYMENT | PAID, FAILED, CANCELLED |
+| PAID | PARTIALLY_REFUNDED, REFUNDED |
+| PARTIALLY_REFUNDED | REFUNDED |
+| FAILED | (terminal) |
+| CANCELLED | (terminal) |
+| REFUNDED | (terminal) |
 
 ---
 
@@ -575,6 +782,20 @@ CANCELLED CANCELLED   CANCELLED   RETURNED → REFUNDED
 ```json
 {
   "success": false,
-  "message": "Order cannot be cancelled. Current status: Shipped"
+  "message": "Order is already paid"
 }
 ```
+
+---
+
+## 🧪 Test Cards 🆕
+
+| Card Number | Scenario |
+|-------------|----------|
+| `4242 4242 4242 4242` | Successful payment |
+| `4000 0000 0000 0002` | Card declined |
+| `4000 0025 0000 3155` | Requires 3D Secure authentication |
+| `4000 0000 0000 9995` | Insufficient funds |
+| `4000 0000 0000 0069` | Expired card |
+
+Use any future date for expiry and any 3-digit CVC.

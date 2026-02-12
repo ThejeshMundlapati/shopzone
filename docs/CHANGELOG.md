@@ -5,7 +5,139 @@ All notable changes to ShopZone will be documented in this file.
 
 ---
 
-## [1.3.0] - 2026-01-27 (Phase 1 Week 4)
+## [1.4.0] - 2026-02-12 (Phase 2 Week 5) 🆕
+
+### Added
+
+#### Stripe Payment Integration
+- Payment Intent creation for secure payment processing
+- Client secret returned to frontend for Stripe.js confirmation
+- Automatic payment method detection (cards, wallets, etc.)
+- Order metadata included in payment for tracking
+- Publishable key returned for frontend initialization
+
+#### Webhook Handling
+- Stripe webhook endpoint for payment events
+- Signature verification for security (webhook secret)
+- Fallback deserialization for API version mismatches
+- Event handlers for:
+    - `payment_intent.succeeded` - Confirms order, reduces stock
+    - `payment_intent.payment_failed` - Updates order status
+    - `payment_intent.canceled` - Handles cancellation
+    - `charge.refunded` - Tracks refunds (audit)
+    - `charge.dispute.created` - Logs disputes
+
+#### Refund Processing
+- Full refund support via Stripe Refund API
+- Partial refund support with amount validation
+- Refund reason tracking
+- Optional stock restoration on refund
+- 30-day configurable refund window
+- Refund eligibility checking
+
+#### Payment History
+- User payment history endpoint with pagination
+- Detailed payment information including:
+    - Card details (last 4, brand)
+    - Receipt URLs from Stripe
+    - Refund amounts and status
+- Valid sort fields: createdAt, amount, status, paidAt
+
+#### Admin Features
+- View all payments with filtering by status
+- Process refunds (full or partial)
+- Check refund eligibility for any order
+- Payment statistics dashboard:
+    - Total payments count
+    - Successful/failed payments
+    - Total revenue
+    - Total refunded amount
+
+### Technical
+- Added Stripe Java SDK (v24.18.0)
+- Created Payment entity (PostgreSQL) with indexes
+- Updated PaymentStatus enum with Stripe states:
+    - Added: AWAITING_PAYMENT, PARTIALLY_REFUNDED
+- Added PaymentMethod enum (CARD, BANK_TRANSFER, WALLET, OTHER)
+- Created StripeConfig for SDK initialization
+- Created StripeService for low-level Stripe operations
+- Created PaymentService for payment management
+- Created RefundService for refund processing
+- Created StripeWebhookService for event handling
+- Updated Order entity with payment fields:
+    - stripePaymentIntentId, stripeChargeId
+    - receiptUrl, paidAt, amountRefunded
+- Updated CheckoutService to set PENDING payment status
+- Updated OrderService with:
+    - reduceStockForOrder (on payment success)
+    - restoreStockForOrder (on refund)
+- Added PaymentRepository with search queries
+- Updated SecurityConfig for webhook endpoint (public)
+
+### API Endpoints Added
+```
+Payments:
+POST   /api/payments/create-intent        - Create payment intent
+GET    /api/payments/{orderNumber}        - Get payment status
+GET    /api/payments/history              - Get payment history
+GET    /api/payments/{orderNumber}/refund-eligibility - Check refund eligibility
+
+Webhooks:
+POST   /api/webhooks/stripe               - Stripe webhook handler (public)
+
+Admin Payments:
+GET    /api/admin/payments                - Get all payments
+GET    /api/admin/payments/{orderNumber}  - Get payment details
+POST   /api/admin/payments/refund         - Process refund
+GET    /api/admin/payments/{orderNumber}/refund-eligibility - Check refund eligibility
+GET    /api/admin/payments/stats          - Get payment statistics
+```
+
+### Security
+- Webhook endpoint accessible without authentication
+- Webhook signature verification for security
+- Payment endpoints require user authentication
+- Admin payment endpoints require ADMIN role
+- Users can only access their own payments
+
+### Configuration Added
+```yaml
+stripe:
+  secret-key: ${STRIPE_SECRET_KEY}
+  public-key: ${STRIPE_PUBLIC_KEY}
+  webhook-secret: ${STRIPE_WEBHOOK_SECRET}
+  currency: usd
+
+shopzone:
+  payment:
+    refund-window-days: 30
+```
+
+### Database Changes
+- Added `payments` table with columns:
+    - id, order_id, order_number, user_id
+    - stripe_payment_intent_id, stripe_charge_id, stripe_customer_id
+    - client_secret, amount, currency, status, payment_method
+    - card_last_four, card_brand
+    - failure_code, failure_message
+    - amount_refunded, stripe_refund_id, refund_reason
+    - receipt_url, statement_descriptor
+    - created_at, updated_at, paid_at, refunded_at
+- Added indexes on: order_id, stripe_payment_intent_id, status, user_id
+- Updated `orders` table:
+    - Added: stripe_payment_intent_id, stripe_charge_id, receipt_url
+    - Added: paid_at, amount_refunded
+- Updated `payment_status` check constraint to include new statuses
+
+### Fixed
+- Webhook deserialization issues with API version mismatches
+- Added fallback using `deserializeUnsafe()` for Stripe events
+- Invalid sort field handling in payment history endpoint
+- Sort field validation with whitelist (createdAt, amount, status, paidAt)
+
+---
+
+## [1.3.0] - 2026-01-29 (Phase 1 Week 4)
 
 ### Added
 
@@ -235,9 +367,10 @@ GET    /api/auth/verify-email
 
 ## Version Summary
 
-| Version | Date       | Focus |
-|---------|------------|-------|
-| v1.3.0 | 2026-01-29 | Orders & Checkout |
-| v1.2.0 | 2026-01-16 | Cart, Wishlist, Address |
-| v1.1.0 | 2026-01-05 | Product Catalog |
-| v1.0.0 | 2025-12-27 | Authentication |
+| Version | Date       | Phase | Focus |
+|---------|------------|-------|-------|
+| v1.4.0 | 2026-02-12 | 2 | Stripe Payment Integration 🆕 |
+| v1.3.0 | 2026-01-29 | 1 | Orders & Checkout |
+| v1.2.0 | 2026-01-16 | 1 | Cart, Wishlist, Address |
+| v1.1.0 | 2026-01-05 | 1 | Product Catalog |
+| v1.0.0 | 2025-12-27 | 1 | Authentication |
