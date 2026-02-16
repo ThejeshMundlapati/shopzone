@@ -68,6 +68,15 @@ public class Product {
 
   private ProductDetails details;
 
+
+  @Builder.Default
+  @Indexed
+  private Double averageRating = 0.0;
+
+  @Builder.Default
+  private Integer reviewCount = 0;
+
+
   @CreatedDate
   private LocalDateTime createdAt;
 
