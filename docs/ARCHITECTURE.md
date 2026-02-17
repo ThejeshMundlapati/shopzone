@@ -23,6 +23,11 @@
 │  │ Controller  │  │ Controller  │  │ Controller  │             │
 │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘             │
 │         │                │                │                    │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │  Review     │  │   Search    │  │    Sync     │             │
+│  │ Controller  │  │ Controller  │  │  Service    │             │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘             │
+│         │                │                │        (Week 6) 🆕 │
 │  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐             │
 │  │   Auth      │  │  Product    │  │   Order     │             │
 │  │  Service    │  │  Service    │  │  Service    │             │
@@ -33,6 +38,11 @@
 │  │  Service    │  │  Service    │  │  Service    │             │
 │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘             │
 │         │                │                │                    │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │  Review     │  │   Search    │  │    Sync     │             │
+│  │  Service    │  │  Service    │  │  Service    │ (Week 6) 🆕 │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘             │
+│         │                │                │                    │
 ├─────────┼────────────────┼────────────────┼────────────────────┤
 │         ▼                ▼                ▼                    │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐  ┌────────┐ │
@@ -41,7 +51,13 @@
 │  │   Orders    │  │ Categories  │  │  Wishlist   │  │        │ │
 │  │  Payments   │  │             │  │  Sessions   │  │        │ │
 │  │  Addresses  │  │             │  │             │  │        │ │
+│  │  Reviews 🆕 │  │             │  │             │  │        │ │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └────────┘ │
+│                                                                │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                    Elasticsearch 🆕                     │   │
+│  │                    Product Search Index                 │   │
+│  └─────────────────────────────────────────────────────────┘   │
 └────────────────────────────────────────────────────────────────┘
 ```
 
@@ -55,10 +71,11 @@ We use different databases for different purposes:
 
 | Database | Use Case | Why |
 |----------|----------|-----|
-| **PostgreSQL** | Users, Orders, Payments, Addresses | ACID compliance, relational data, transactions |
+| **PostgreSQL** | Users, Orders, Payments, Addresses, Reviews 🆕 | ACID compliance, relational data, transactions |
 | **MongoDB** | Products, Categories | Flexible schema, nested data, fast reads |
 | **Redis** | Cart, Wishlist, Sessions | In-memory speed, TTL support, temporary data |
-| **Stripe** | Payment Processing | PCI compliance, secure payment handling 🆕 |
+| **Stripe** | Payment Processing | PCI compliance, secure payment handling |
+| **Elasticsearch** 🆕 | Product Search | Full-text search, filters, autocomplete |
 
 ---
 
@@ -138,7 +155,7 @@ CREATE TABLE orders (
     shipping_cost DECIMAL(10,2),
     discount_amount DECIMAL(10,2),
     total_amount DECIMAL(10,2),
-    amount_refunded DECIMAL(10,2),                   -- 🆕
+    amount_refunded DECIMAL(10,2),
     
     -- Notes
     customer_notes TEXT,
@@ -146,17 +163,17 @@ CREATE TABLE orders (
     cancellation_reason TEXT,
     cancelled_by VARCHAR(20),
     
-    -- Payment (Stripe) 🆕
+    -- Payment (Stripe)
     payment_method VARCHAR(50),
     payment_id VARCHAR(100),
-    stripe_payment_intent_id VARCHAR(100),           -- 🆕
-    stripe_charge_id VARCHAR(100),                   -- 🆕
-    receipt_url VARCHAR(500),                        -- 🆕
+    stripe_payment_intent_id VARCHAR(100),
+    stripe_charge_id VARCHAR(100),
+    receipt_url VARCHAR(500),
     
     -- Timestamps
     created_at TIMESTAMP,
     updated_at TIMESTAMP,
-    paid_at TIMESTAMP,                               -- 🆕
+    paid_at TIMESTAMP,
     confirmed_at TIMESTAMP,
     shipped_at TIMESTAMP,
     delivered_at TIMESTAMP,
@@ -187,7 +204,7 @@ CREATE TABLE order_items (
 );
 ```
 
-### Payments Table 🆕
+### Payments Table
 ```sql
 CREATE TABLE payments (
     id UUID PRIMARY KEY,
@@ -238,6 +255,40 @@ CREATE TABLE payments (
 );
 ```
 
+### Reviews Table 🆕
+```sql
+CREATE TABLE reviews (
+    id UUID PRIMARY KEY,
+    user_id UUID REFERENCES users(id) NOT NULL,
+    product_id VARCHAR(50) NOT NULL,
+    
+    -- Review Content
+    rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
+    title VARCHAR(100),
+    comment TEXT,
+    
+    -- Verification
+    verified_purchase BOOLEAN DEFAULT FALSE,
+    order_number VARCHAR(20),
+    
+    -- Engagement
+    helpful_count INTEGER DEFAULT 0,
+    
+    -- Timestamps
+    created_at TIMESTAMP,
+    updated_at TIMESTAMP,
+    
+    -- Constraints
+    CONSTRAINT uk_user_product_review UNIQUE (user_id, product_id),
+    
+    -- Indexes
+    INDEX idx_review_product (product_id),
+    INDEX idx_review_user (user_id),
+    INDEX idx_review_rating (rating),
+    INDEX idx_review_created (created_at)
+);
+```
+
 ---
 
 ## MongoDB Schema
@@ -268,6 +319,8 @@ CREATE TABLE payments (
     "storage": "256GB"
   },
   "active": true,
+  "averageRating": 4.5,        // 🆕 Week 6
+  "reviewCount": 128,          // 🆕 Week 6
   "createdAt": ISODate,
   "updatedAt": ISODate
 }
@@ -285,6 +338,39 @@ CREATE TABLE payments (
   "active": true,
   "createdAt": ISODate,
   "updatedAt": ISODate
+}
+```
+
+---
+
+## Elasticsearch Schema 🆕
+
+### Products Index
+```javascript
+{
+  "mappings": {
+    "properties": {
+      "id": { "type": "keyword" },
+      "name": { "type": "text", "analyzer": "standard" },
+      "description": { "type": "text", "analyzer": "standard" },
+      "sku": { "type": "keyword" },
+      "slug": { "type": "keyword" },
+      "brand": { "type": "keyword" },
+      "price": { "type": "double" },
+      "salePrice": { "type": "double" },
+      "stock": { "type": "integer" },
+      "active": { "type": "boolean" },
+      "categoryId": { "type": "keyword" },
+      "categoryName": { "type": "keyword" },
+      "categorySlug": { "type": "keyword" },
+      "tags": { "type": "keyword" },
+      "images": { "type": "keyword" },
+      "averageRating": { "type": "double" },
+      "reviewCount": { "type": "integer" },
+      "createdAt": { "type": "date" },
+      "updatedAt": { "type": "date" }
+    }
+  }
 }
 ```
 
@@ -323,7 +409,158 @@ TTL: 90 days
 
 ---
 
-## Payment Flow Architecture 🆕
+## Search Architecture 🆕
+
+### Search Flow
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      SEARCH FLOW                                │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   User Query: "gaming laptop"                                   │
+│       │                                                         │
+│       ▼                                                         │
+│   ┌─────────────────┐                                           │
+│   │SearchController │                                           │
+│   │ GET /api/search │                                           │
+│   └────────┬────────┘                                           │
+│            │                                                    │
+│            ▼                                                    │
+│   ┌─────────────────────┐                                       │
+│   │ ProductSearchService│                                       │
+│   │                     │                                       │
+│   │ • Build bool query  │                                       │
+│   │ • Add filters       │                                       │
+│   │ • Apply sorting     │                                       │
+│   │ • Execute search    │                                       │
+│   └────────┬────────────┘                                       │
+│            │                                                    │
+│            ▼                                                    │
+│   ┌─────────────────────┐                                       │
+│   │    Elasticsearch    │                                       │
+│   │                     │                                       │
+│   │ Multi-match query:  │                                       │
+│   │ • name^3            │  (boosted)                            │
+│   │ • description^2     │  (boosted)                            │
+│   │ • brand^2           │  (boosted)                            │
+│   │ • tags              │                                       │
+│   │                     │                                       │
+│   │ Filters:            │                                       │
+│   │ • price range       │                                       │
+│   │ • category          │                                       │
+│   │ • brand             │                                       │
+│   │ • rating            │                                       │
+│   │ • in stock          │                                       │
+│   └─────────────────────┘                                       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Data Sync Architecture 🆕
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                 MongoDB → Elasticsearch Sync                    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   Product Changes in MongoDB                                    │
+│       │                                                         │
+│       ├──► Create Product ──► syncProduct() ──► ES Index        │
+│       │                                                         │
+│       ├──► Update Product ──► syncProduct() ──► ES Update       │
+│       │                                                         │
+│       ├──► Delete Product ──► removeProduct() ──► ES Delete     │
+│       │                                                         │
+│       └──► Rating Change ──► updateProductRating() ──► ES Update│
+│                                                                 │
+│   Admin Manual Sync                                             │
+│       │                                                         │
+│       ├──► Full Sync ──► syncAllProducts() ──► Reindex All      │
+│       │                                                         │
+│       ├──► Single Product ──► syncProductById() ──► ES Update   │
+│       │                                                         │
+│       └──► Category Reindex ──► reindexCategory() ──► ES Update │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Review System Architecture 🆕
+
+### Review Flow
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      REVIEW FLOW                                │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   User creates review                                           │
+│       │                                                         │
+│       ▼                                                         │
+│   ┌─────────────────┐                                           │
+│   │ ReviewController│                                           │
+│   │ POST /api/reviews│                                          │
+│   └────────┬────────┘                                           │
+│            │                                                    │
+│            ▼                                                    │
+│   ┌─────────────────────┐                                       │
+│   │   ReviewService     │                                       │
+│   │                     │                                       │
+│   │ 1. Verify product   │───────► MongoDB (Products)            │
+│   │    exists           │                                       │
+│   │                     │                                       │
+│   │ 2. Check duplicate  │───────► PostgreSQL (Reviews)          │
+│   │    review           │                                       │
+│   │                     │                                       │
+│   │ 3. Verify purchase  │───────► PostgreSQL (Orders)           │
+│   │    (for badge)      │         - Check DELIVERED orders      │
+│   │                     │         - Match product ID            │
+│   │                     │                                       │
+│   │ 4. Create review    │───────► PostgreSQL (Reviews)          │
+│   │                     │                                       │
+│   │ 5. Update rating    │───────► ProductSyncService            │
+│   │    in search index  │         - MongoDB (averageRating)     │
+│   │                     │         - Elasticsearch (update)      │
+│   └─────────────────────┘                                       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Verified Purchase Logic
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              VERIFIED PURCHASE DETERMINATION                    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   When user submits review:                                     │
+│                                                                 │
+│   1. Query: Find user's DELIVERED orders                        │
+│      SELECT * FROM orders                                       │
+│      WHERE user_id = :userId AND status = 'DELIVERED'           │
+│                                                                 │
+│   2. For each order, check if product exists in order_items     │
+│      SELECT * FROM order_items                                  │
+│      WHERE order_id = :orderId AND product_id = :productId      │
+│                                                                 │
+│   3. If found:                                                  │
+│      ┌─────────────────────────────────────────┐                │
+│      │ verifiedPurchase = true                 │                │
+│      │ orderNumber = found order's number      │                │
+│      │ Badge: ✓ Verified Purchase              │                │
+│      └─────────────────────────────────────────┘                │
+│                                                                 │
+│   4. If not found:                                              │
+│      ┌─────────────────────────────────────────┐                │
+│      │ verifiedPurchase = false                │                │
+│      │ orderNumber = null                      │                │
+│      │ No badge displayed                      │                │
+│      └─────────────────────────────────────────┘                │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Payment Flow Architecture
 
 ### Payment Intent Flow
 ```
@@ -373,7 +610,7 @@ TTL: 90 days
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Why Webhooks? 🆕
+### Why Webhooks?
 
 ```
 ┌──────────────────────────────────────────────────────────────┐
@@ -402,7 +639,7 @@ TTL: 90 days
 └──────────────────────────────────────────────────────────────┘
 ```
 
-### Refund Flow 🆕
+### Refund Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -480,7 +717,7 @@ TTL: 90 days
 
 ---
 
-## Payment Status State Machine 🆕
+## Payment Status State Machine
 
 ```
                     ┌─────────────┐
@@ -573,7 +810,7 @@ Process Refund:
 ◄──────────────────────────────────┘
 ```
 
-### Webhook Security 🆕
+### Webhook Security
 ```
 ┌──────────┐   Webhook + Signature   ┌──────────┐
 │  Stripe  │ ──────────────────────► │  Server  │
@@ -593,9 +830,9 @@ Process Refund:
 ### Authorization Levels
 | Role | Permissions |
 |------|-------------|
-| PUBLIC | View products, categories, Stripe webhooks |
-| CUSTOMER | Cart, wishlist, orders, addresses, payments |
-| ADMIN | All + product/category CRUD + order/payment management + refunds |
+| PUBLIC | View products, categories, search 🆕, reviews (read) 🆕, Stripe webhooks |
+| CUSTOMER | Cart, wishlist, orders, addresses, payments, reviews (write) 🆕 |
+| ADMIN | All + product/category CRUD + order/payment management + refunds + search sync 🆕 |
 
 ---
 
@@ -609,14 +846,20 @@ shopzone:
     flat-shipping-rate: 5.99          # Otherwise $5.99
     cancellation-window-hours: 24     # Cancel within 24hrs
   
-  payment:                            # 🆕
+  payment:
     refund-window-days: 30            # Refund within 30 days
 
-stripe:                               # 🆕
+stripe:
   secret-key: ${STRIPE_SECRET_KEY}
   public-key: ${STRIPE_PUBLIC_KEY}
   webhook-secret: ${STRIPE_WEBHOOK_SECRET}
   currency: usd
+
+spring:
+  elasticsearch:                      # 🆕 Week 6
+    uris: http://localhost:9200
+    connection-timeout: 5s
+    socket-timeout: 30s
 ```
 
 ---
@@ -649,13 +892,18 @@ stripe:                               # 🆕
 
 ### 6. State Machine Pattern
 - Order status transitions validated
-- Payment status transitions validated 🆕
+- Payment status transitions validated
 - Invalid transitions rejected
 
-### 7. Webhook Handler Pattern 🆕
+### 7. Webhook Handler Pattern
 - Idempotent event processing
 - Signature verification
 - Event type routing
+
+### 8. Sync Service Pattern 🆕
+- Keeps Elasticsearch in sync with MongoDB
+- Handles create/update/delete events
+- Supports full and incremental sync
 
 ---
 

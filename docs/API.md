@@ -379,7 +379,7 @@ Response: 200 OK
 
 ---
 
-## 💳 Payment Endpoints 🆕
+## 💳 Payment Endpoints 
 
 ### Create Payment Intent
 
@@ -511,7 +511,7 @@ Response: 200 OK
 
 ---
 
-## 🔗 Webhook Endpoint 🆕
+## 🔗 Webhook Endpoint 
 
 ### Stripe Webhook Handler
 
@@ -607,7 +607,7 @@ Response: 200 OK
 
 ---
 
-## 👑 Admin Payment Endpoints 🆕
+## 👑 Admin Payment Endpoints 
 
 ### Get All Payments (Admin)
 
@@ -711,7 +711,316 @@ Response: 200 OK
 
 ---
 
-## 📊 Order & Payment Status Flow 🆕
+---
+
+
+## Search Endpoints 🆕
+
+### Search Products
+```http
+GET /api/search
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| q | string | No | Search query |
+| minPrice | number | No | Minimum price |
+| maxPrice | number | No | Maximum price |
+| categoryId | string | No | Category ID |
+| brand | string | No | Brand name |
+| tags | string[] | No | Tags to filter |
+| minRating | number | No | Minimum average rating |
+| inStock | boolean | No | Only in-stock products |
+| page | integer | No | Page number (default: 0) |
+| size | integer | No | Page size (default: 12, max: 100) |
+| sortBy | string | No | Sort field: relevance, price, rating, newest, name |
+| sortDir | string | No | Sort direction: asc, desc |
+
+**Example:**
+```
+GET /api/search?q=laptop&minPrice=500&maxPrice=1500&sortBy=price&sortDir=asc
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "products": [
+      {
+        "id": "product123",
+        "name": "Gaming Laptop Pro",
+        "description": "High-performance gaming laptop...",
+        "slug": "gaming-laptop-pro",
+        "brand": "TechBrand",
+        "price": 1299.99,
+        "salePrice": null,
+        "stock": 15,
+        "categoryId": "cat123",
+        "categoryName": "Laptops",
+        "tags": ["gaming", "laptop"],
+        "images": ["https://..."],
+        "averageRating": 4.5,
+        "reviewCount": 23,
+        "score": 5.234
+      }
+    ],
+    "totalHits": 45,
+    "totalPages": 4,
+    "currentPage": 0,
+    "pageSize": 12,
+    "query": "laptop",
+    "searchTimeMs": 15
+  }
+}
+```
+
+### Autocomplete
+```http
+GET /api/search/autocomplete
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| q | string | Yes | Search prefix (min 2 chars) |
+| limit | integer | No | Max results (default: 10, max: 20) |
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "query": "lap",
+    "suggestions": [
+      {
+        "text": "Laptop Pro 15",
+        "type": "product",
+        "id": "prod123",
+        "slug": "laptop-pro-15",
+        "price": 999.99,
+        "imageUrl": "https://...",
+        "score": 8.5
+      }
+    ],
+    "searchTimeMs": 8
+  }
+}
+```
+
+### Similar Products
+```http
+GET /api/search/similar/{productId}
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| limit | integer | No | Max results (default: 6, max: 20) |
+
+---
+
+## Review Endpoints 🆕
+
+### Get Product Reviews
+```http
+GET /api/reviews/product/{productId}
+```
+
+**Query Parameters:**
+
+| Parameter | Type | Required | Description |
+|-----------|------|----------|-------------|
+| page | integer | No | Page number (default: 0) |
+| size | integer | No | Page size (default: 10) |
+| rating | integer | No | Filter by rating (1-5) |
+| verifiedOnly | boolean | No | Only verified purchases |
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "content": [
+      {
+        "id": "uuid",
+        "productId": "prod123",
+        "userName": "J*** D.",
+        "rating": 5,
+        "title": "Excellent product!",
+        "comment": "This product exceeded my expectations...",
+        "verifiedPurchase": true,
+        "helpfulCount": 12,
+        "createdAt": "2026-02-10T14:30:00",
+        "updatedAt": "2026-02-10T14:30:00",
+        "isOwner": false
+      }
+    ],
+    "totalElements": 23,
+    "totalPages": 3,
+    "number": 0
+  }
+}
+```
+
+### Get Review Statistics
+```http
+GET /api/reviews/product/{productId}/stats
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "productId": "prod123",
+    "averageRating": 4.3,
+    "totalReviews": 45,
+    "ratingDistribution": {
+      "5": 20,
+      "4": 15,
+      "3": 5,
+      "2": 3,
+      "1": 2
+    },
+    "ratingPercentages": {
+      "5": 44.4,
+      "4": 33.3,
+      "3": 11.1,
+      "2": 6.7,
+      "1": 4.4
+    },
+    "verifiedPurchaseCount": 30
+  }
+}
+```
+
+### Create Review (Auth Required)
+```http
+POST /api/reviews
+```
+
+**Request:**
+```json
+{
+  "productId": "prod123",
+  "rating": 5,
+  "title": "Great product!",
+  "comment": "Highly recommend this product..."
+}
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "message": "Review created successfully",
+  "data": {
+    "id": "uuid",
+    "productId": "prod123",
+    "userName": "J*** D.",
+    "rating": 5,
+    "title": "Great product!",
+    "comment": "Highly recommend this product...",
+    "verifiedPurchase": true,
+    "helpfulCount": 0,
+    "isOwner": true
+  }
+}
+```
+
+### Update Review (Auth Required)
+```http
+PUT /api/reviews/{reviewId}
+```
+
+**Request:**
+```json
+{
+  "rating": 4,
+  "title": "Updated title",
+  "comment": "Updated comment..."
+}
+```
+
+### Delete Review (Auth Required)
+```http
+DELETE /api/reviews/{reviewId}
+```
+
+### Get My Reviews (Auth Required)
+```http
+GET /api/reviews/my-reviews
+```
+
+### Check Review Eligibility (Auth Required)
+```http
+GET /api/reviews/product/{productId}/can-review
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "canReview": true
+  }
+}
+```
+
+### Mark Review Helpful
+```http
+POST /api/reviews/{reviewId}/helpful
+```
+
+---
+
+## Admin Search Endpoints 🆕
+
+### Trigger Full Sync (Admin)
+```http
+POST /api/search/admin/sync
+```
+
+### Get Sync Status (Admin)
+```http
+GET /api/search/admin/sync/status
+```
+
+**Response:**
+```json
+{
+  "success": true,
+  "data": {
+    "mongoCount": 150,
+    "elasticsearchCount": 150,
+    "inSync": true
+  }
+}
+```
+
+### Sync Single Product (Admin)
+```http
+POST /api/search/admin/sync/product/{productId}
+```
+
+### Reindex Category (Admin)
+```http
+POST /api/search/admin/sync/category/{categoryId}
+```
+
+### Admin Delete Review
+```http
+DELETE /api/reviews/admin/{reviewId}
+```
+
+---
+
+## 📊 Order & Payment Status Flow 
 
 ### Order Status Flow
 ```
@@ -788,7 +1097,7 @@ PENDING → AWAITING_PAYMENT → PAID → PARTIALLY_REFUNDED → REFUNDED
 
 ---
 
-## 🧪 Test Cards 🆕
+## 🧪 Test Cards 
 
 | Card Number | Scenario |
 |-------------|----------|

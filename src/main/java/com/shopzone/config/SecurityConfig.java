@@ -64,23 +64,35 @@ public class SecurityConfig {
                 "/api/auth/verify/**"
             ).permitAll()
 
-
             .requestMatchers("/api/webhooks/stripe").permitAll()
 
             .requestMatchers(HttpMethod.GET, "/api/products/**").permitAll()
             .requestMatchers(HttpMethod.GET, "/api/categories/**").permitAll()
 
+            .requestMatchers(HttpMethod.GET, "/api/search/**").permitAll()
+            .requestMatchers(HttpMethod.POST, "/api/search").permitAll()
+
+            .requestMatchers(HttpMethod.GET, "/api/reviews/product/**").permitAll()
+            .requestMatchers(HttpMethod.POST, "/api/reviews/*/helpful").permitAll()
+
             .requestMatchers("/api/auth/me", "/api/auth/logout").authenticated()
             .requestMatchers("/api/cart/**").authenticated()
             .requestMatchers("/api/wishlist/**").authenticated()
             .requestMatchers("/api/addresses/**").authenticated()
-
             .requestMatchers("/api/checkout/**").authenticated()
             .requestMatchers("/api/orders/**").authenticated()
-
             .requestMatchers("/api/payments/**").authenticated()
 
+            .requestMatchers(HttpMethod.POST, "/api/reviews").authenticated()
+            .requestMatchers(HttpMethod.PUT, "/api/reviews/**").authenticated()
+            .requestMatchers(HttpMethod.DELETE, "/api/reviews/**").authenticated()
+            .requestMatchers("/api/reviews/my-reviews").authenticated()
+
             .requestMatchers("/api/admin/**").hasRole("ADMIN")
+
+            .requestMatchers("/api/search/admin/**").hasRole("ADMIN")
+            .requestMatchers(HttpMethod.DELETE, "/api/reviews/admin/**").hasRole("ADMIN")
+
             .requestMatchers(HttpMethod.POST, "/api/products/**").hasRole("ADMIN")
             .requestMatchers(HttpMethod.PUT, "/api/products/**").hasRole("ADMIN")
             .requestMatchers(HttpMethod.PATCH, "/api/products/**").hasRole("ADMIN")
