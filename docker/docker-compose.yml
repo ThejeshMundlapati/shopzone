@@ -1,5 +1,4 @@
 # docker/docker-compose.yml
-# Week 3 - PostgreSQL + MongoDB + Redis
 
 services:
   # ==================== PostgreSQL - User/Auth data (Week 1) ====================
@@ -69,10 +68,34 @@ services:
     depends_on:
       - redis
 
+  # Elasticsearch - Product search (Week 6)
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: shopzone-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - xpack.security.enrollment.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+      - "9300:9300"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    networks:
+      - shopzone-network
+    healthcheck:
+      test: [ "CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -vq '\"status\":\"red\"'" ]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+
+
 volumes:
   postgres_data:
   mongodb_data:
   redis_data:
+  es_data:
 
 networks:
   shopzone-network:

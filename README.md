@@ -66,9 +66,20 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 - [x] 30-day configurable refund window
 - [x] Stock management on payment/refund
 
+
+#### Week 6: Reviews & Search ✅ 🆕
+- [x] Product reviews with ratings (1-5 stars)
+- [x] Verified purchase badges
+- [x] Review statistics & distribution
+- [x] Elasticsearch full-text search
+- [x] Multi-field search (name, description, brand, tags)
+- [x] Advanced filters (price, category, brand, rating)
+- [x] Autocomplete suggestions
+- [x] Similar products recommendations
+- [x] MongoDB to Elasticsearch sync
+
 ### Upcoming
-- [ ] Week 6: Reviews & Ratings
-- [ ] Phase 3: Microservices Migration
+- [ ] Week 7: Notifications & Admin Dashboard
 
 ## 🛠️ Tech Stack
 
@@ -82,58 +93,91 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 | **Documentation** | Swagger/OpenAPI 3.0 |
 | **Containerization** | Docker, Docker Compose |
 
+
 ## 🏗️ Architecture
 
 ```
-┌─────────────────────────────────────────────────────────────┐
-│                      Client (Browser/App)                   │
-└─────────────────────────┬───────────────────────────────────┘
-                          │
-                          ▼
-┌────────────────────────────────────────────────────────────┐
-│                    Spring Boot Application                 │
-├────────────────────────────────────────────────────────────┤
-│  Controllers → Services → Repositories                     │
-├────────────────────────────────────────────────────────────┤
-│  ┌──────────┐  ┌──────────┐  ┌──────────┐  ┌──────────┐    │
-│  │PostgreSQL│  │ MongoDB  │  │  Redis   │  │  Stripe  │    │
-│  │  Users   │  │ Products │  │  Cart    │  │ Payments │    │
-│  │  Orders  │  │Categories│  │ Wishlist │  │          │    │
-│  │ Payments │  │          │  │          │  │          │    │
-│  │ Addresses│  │          │  │          │  │          │    │
-│  └──────────┘  └──────────┘  └──────────┘  └──────────┘    │
-└────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────┐
+│                         Client Layer                            │
+│                    (Web Browser / Mobile App)                   │
+└─────────────────────────────┬───────────────────────────────────┘
+                              │ HTTP/HTTPS
+                              ▼
+┌─────────────────────────────────────────────────────────────────┐
+│                      Spring Boot Application                    │
+├─────────────────────────────────────────────────────────────────┤
+│  Auth │ Products │ Cart │ Orders │ Payments │ Reviews │ Search  │
+└───┬───────┬─────────┬───────┬────────┬─────────┬────────┬───────┘
+    │       │         │       │        │         │        │
+    ▼       ▼         ▼       ▼        ▼         ▼        ▼
+┌───────┐┌───────┐┌───────┐┌───────┐┌───────┐┌───────┐┌───────────┐
+│Postgre││MongoDB││ Redis ││Postgre││ Stripe││Postgre││Elastic    │
+│  SQL  ││       ││       ││  SQL  ││  API  ││  SQL  ││  Searc    │
+└───────┘└───────┘└───────┘└───────┘└───────┘└───────┘└───────────┘
+ Users    Products  Cart    Orders   Payments Reviews   Search
+          Categories Wishlist                           Index
 ```
 
-## 🚀 Getting Started
+
+# 🚀 Getting Started
 
 ### Prerequisites
+
 - Java 17+
 - Docker & Docker Compose
 - Maven 3.8+
-- Stripe Account (free test mode)
+- Stripe Account (for payments)
+- Cloudinary Account (for images)
 
-### Quick Start
-
+### 1. Clone Repository
 ```bash
-# Clone repository
 git clone https://github.com/ThejeshMundlapati/shopzone.git
 cd shopzone
+```
 
-# Start databases
+### 2. Start Databases
+```bash
 cd docker
 docker-compose up -d
+```
 
-# Set Stripe environment variables
-export STRIPE_SECRET_KEY=sk_test_your_key_here
-export STRIPE_PUBLIC_KEY=pk_test_your_key_here
-export STRIPE_WEBHOOK_SECRET=whsec_your_secret_here
+### 3. Verify Services
+```bash
+docker ps
+# Should see: postgres, mongodb, redis, elasticsearch
+```
 
-# Run application
+### 4. Check Elasticsearch
+```bash
+curl http://localhost:9200/_cluster/health
+```
+
+### 5. Configure Environment
+```bash
+# Set environment variables or create application-local.yml
+export STRIPE_SECRET_KEY=sk_test_...
+export STRIPE_PUBLISHABLE_KEY=pk_test_...
+export STRIPE_WEBHOOK_SECRET=whsec_...
+export CLOUDINARY_CLOUD_NAME=...
+export CLOUDINARY_API_KEY=...
+export CLOUDINARY_API_SECRET=...
+```
+
+### 6. Run Application
+```bash
 ./mvnw spring-boot:run
+```
 
-# Access Swagger UI
-open http://localhost:8080/swagger-ui.html
+### 7. Access Swagger UI
+```
+http://localhost:8080/swagger-ui.html
+```
+
+### 8. Initial Sync (Admin)
+After creating products, trigger Elasticsearch sync:
+```bash
+POST /api/search/admin/sync
+Authorization: Bearer {admin_token}
 ```
 
 ## 📚 API Documentation
@@ -153,6 +197,22 @@ open http://localhost:8080/swagger-ui.html
 | GET | `/api/products/{id}` | Get product details |
 | GET | `/api/categories` | List all categories |
 | POST | `/api/products` | Create product (Admin) |
+
+### Search 🆕
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/search` | Search products |
+| GET | `/api/search/autocomplete` | Get suggestions |
+| GET | `/api/search/similar/{id}` | Similar products |
+
+### Reviews 🆕
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/reviews/product/{id}` | Get reviews |
+| GET | `/api/reviews/product/{id}/stats` | Review statistics |
+| POST | `/api/reviews` | Create review |
+| PUT | `/api/reviews/{id}` | Update review |
+| DELETE | `/api/reviews/{id}` | Delete review |
 
 ### Cart & Wishlist
 | Method | Endpoint | Description |
@@ -175,7 +235,7 @@ open http://localhost:8080/swagger-ui.html
 | GET | `/api/orders/{orderNumber}/track` | Track order |
 | POST | `/api/orders/{orderNumber}/cancel` | Cancel order |
 
-### Payments 🆕
+### Payments 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/payments/create-intent` | Create payment intent |
@@ -183,7 +243,7 @@ open http://localhost:8080/swagger-ui.html
 | GET | `/api/payments/history` | Get payment history |
 | GET | `/api/payments/{orderNumber}/refund-eligibility` | Check refund eligibility |
 
-### Webhooks 🆕
+### Webhooks 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/webhooks/stripe` | Stripe webhook handler (public) |
@@ -197,7 +257,7 @@ open http://localhost:8080/swagger-ui.html
 | GET | `/api/admin/orders/stats` | Get order statistics |
 | GET | `/api/admin/orders/search` | Search orders |
 
-### Admin Payments 🆕
+### Admin Payments 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/admin/payments` | Get all payments |
@@ -212,63 +272,29 @@ open http://localhost:8080/swagger-ui.html
 shopzone/
 ├── src/main/java/com/shopzone/
 │   ├── config/              # Configuration classes
-│   │   ├── SecurityConfig.java
-│   │   ├── RedisConfig.java
-│   │   ├── OrderConfig.java
-│   │   ├── StripeConfig.java         🆕
-│   │   └── OpenApiConfig.java
 │   ├── controller/          # REST controllers
-│   │   ├── AuthController.java
-│   │   ├── ProductController.java
-│   │   ├── CartController.java
-│   │   ├── CheckoutController.java
-│   │   ├── OrderController.java
-│   │   ├── AdminOrderController.java
-│   │   ├── PaymentController.java        🆕
-│   │   ├── StripeWebhookController.java  🆕
-│   │   └── AdminPaymentController.java   🆕
-│   ├── dto/                 # Data Transfer Objects
-│   │   ├── request/
-│   │   │   ├── CreatePaymentRequest.java 🆕
-│   │   │   └── RefundRequest.java        🆕
-│   │   └── response/
-│   │       ├── PaymentIntentResponse.java 🆕
-│   │       ├── PaymentResponse.java       🆕
-│   │       └── RefundResponse.java        🆕
-│   ├── model/               # Entity classes
-│   │   ├── User.java
-│   │   ├── Product.java
-│   │   ├── Order.java
-│   │   ├── OrderItem.java
-│   │   ├── Payment.java          🆕
-│   │   └── enums/
-│   │       ├── OrderStatus.java
-│   │       ├── PaymentStatus.java (updated) 🆕
-│   │       └── PaymentMethod.java 🆕
-│   ├── repository/          # Data access layer
-│   │   ├── jpa/
-│   │   │   ├── UserRepository.java
-│   │   │   ├── AddressRepository.java
-│   │   │   ├── OrderRepository.java
-│   │   │   └── PaymentRepository.java 🆕
-│   │   └── mongo/
-│   ├── service/             # Business logic
-│   │   ├── CheckoutService.java (updated)
-│   │   ├── OrderService.java (updated)
-│   │   ├── StripeService.java        🆕
-│   │   ├── PaymentService.java       🆕
-│   │   ├── RefundService.java        🆕
-│   │   └── StripeWebhookService.java 🆕
-│   └── exception/           # Custom exceptions
+│   ├── dto/                 # Request/Response DTOs
+│   ├── exception/           # Custom exceptions
+│   ├── model/
+│   │   ├── elasticsearch/   # ES documents 🆕
+│   │   ├── enums/
+│   │   └── mongo/           # MongoDB documents
+│   ├── repository/
+│   │   ├── elasticsearch/   # ES repositories 🆕
+│   │   ├── jpa/             # PostgreSQL repositories
+│   │   └── mongo/           # MongoDB repositories
+│   ├── security/            # JWT filter
+│   └── service/             # Business logic
 ├── src/main/resources/
-│   └── application.yml (updated)
+│   ├── elasticsearch/       # ES index settings 🆕
+│   └── application.yml
 ├── docker/
 │   └── docker-compose.yml
 └── docs/
-    ├── API.md (updated)
-    ├── ARCHITECTURE.md (updated)
-    ├── CHANGELOG.md (updated)
-    └── SETUP.md (updated)
+    ├── API.md
+    ├── ARCHITECTURE.md
+    ├── CHANGELOG.md
+    └── SETUP.md
 ```
 
 ## 💳 Payment Flow 🆕

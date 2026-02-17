@@ -9,7 +9,7 @@
 | Docker | 20+ | [Docker Desktop](https://www.docker.com/products/docker-desktop/) |
 | Git | 2.30+ | [Git](https://git-scm.com/) |
 | IDE | Any | IntelliJ IDEA recommended |
-| Stripe CLI | Latest | [Stripe CLI](https://stripe.com/docs/stripe-cli) 🆕 |
+| Stripe CLI | Latest | [Stripe CLI](https://stripe.com/docs/stripe-cli)  |
 
 ---
 
@@ -34,13 +34,30 @@ docker ps
 
 Expected output:
 ```
-CONTAINER ID   IMAGE          PORTS                     NAMES
-xxxx           postgres:15    0.0.0.0:5432->5432/tcp    shopzone-postgres
-xxxx           mongo:7        0.0.0.0:27017->27017/tcp  shopzone-mongodb
-xxxx           redis:7        0.0.0.0:6379->6379/tcp    shopzone-redis
+CONTAINER ID   IMAGE            PORTS                     NAMES
+xxxx           postgres:15      0.0.0.0:5432->5432/tcp    shopzone-postgres
+xxxx           mongo:7          0.0.0.0:27017->27017/tcp  shopzone-mongodb
+xxxx           redis:7          0.0.0.0:6379->6379/tcp    shopzone-redis
+xxxx           elasticsearch:8  0.0.0.0:9200->9300/tcp    shopzone-elasticsearch
 ```
 
-### 4. Set Up Stripe (Week 5+) 🆕
+
+### 4. Check Elasticsearch Health 🆕 (If not testing stripe, move to step 5)
+```bash
+curl http://localhost:9200/_cluster/health?pretty
+```
+
+Expected response:
+```json
+{
+  "cluster_name": "docker-cluster",
+  "status": "green",
+  "number_of_nodes": 1
+}
+```
+
+
+### 4. Set Up Stripe (Week 5+) 
 ```bash
 # Set environment variables
 export STRIPE_SECRET_KEY=sk_test_your_key_here
@@ -67,7 +84,52 @@ Or in IntelliJ:
 
 ---
 
-## Stripe Setup (Week 5) 🆕
+
+## Elasticsearch Setup 🆕
+
+### Initial Sync
+After starting the application and creating products:
+
+1. Login as admin
+2. Trigger full sync:
+```bash
+POST /api/search/admin/sync
+Authorization: Bearer {admin_token}
+```
+
+3. Check sync status:
+```bash
+GET /api/search/admin/sync/status
+Authorization: Bearer {admin_token}
+```
+
+### Useful Elasticsearch Commands
+
+```bash
+# Cluster health
+curl http://localhost:9200/_cluster/health?pretty
+
+# List indices
+curl http://localhost:9200/_cat/indices?v
+
+# View products index
+curl http://localhost:9200/products?pretty
+
+# Count documents
+curl http://localhost:9200/products/_count
+
+# Search all products
+curl http://localhost:9200/products/_search?pretty
+
+# View index mapping
+curl http://localhost:9200/products/_mapping?pretty
+
+# Delete index (full reset)
+curl -X DELETE http://localhost:9200/products
+```
+
+
+## Stripe Setup (Week 5) 
 
 ### Step 1: Create Stripe Account
 1. Go to https://dashboard.stripe.com/register
@@ -221,7 +283,7 @@ cloudinary:
   api-key: your-api-key
   api-secret: your-api-secret
 
-# Stripe Configuration 🆕
+# Stripe Configuration 
 stripe:
   secret-key: ${STRIPE_SECRET_KEY:sk_test_default}
   public-key: ${STRIPE_PUBLIC_KEY:pk_test_default}
@@ -236,7 +298,7 @@ shopzone:
     flat-shipping-rate: 5.99          # Otherwise $5.99
     cancellation-window-hours: 24     # Cancel within 24 hours
   
-  # Payment Configuration 🆕
+  # Payment Configuration 
   payment:
     refund-window-days: 30            # Refund within 30 days
 
@@ -272,7 +334,7 @@ export CLOUDINARY_CLOUD_NAME=your-cloud
 export CLOUDINARY_API_KEY=your-key
 export CLOUDINARY_API_SECRET=your-secret
 
-# Stripe 🆕
+# Stripe 
 export STRIPE_SECRET_KEY=sk_live_your_live_key   # Use LIVE keys in production!
 export STRIPE_PUBLIC_KEY=pk_live_your_live_key
 export STRIPE_WEBHOOK_SECRET=whsec_your_production_webhook_secret
@@ -340,7 +402,7 @@ docker exec -it shopzone-postgres psql -U shopzone_admin -d shopzone \
 
 ---
 
-## Testing Payments 🆕
+## Testing Payments 
 
 ### Test Cards
 
@@ -384,6 +446,37 @@ stripe trigger payment_intent.succeeded --add payment_intent:metadata.orderNumbe
 GET /api/payments/ORD-20260131-XXXX
 ```
 
+
+
+### Elasticsearch Troubleshooting
+
+**Issue: Elasticsearch won't start**
+```bash
+# Check logs
+docker logs shopzone-elasticsearch
+
+# Increase virtual memory (Linux)
+sudo sysctl -w vm.max_map_count=262144
+
+# Make permanent
+echo "vm.max_map_count=262144" | sudo tee -a /etc/sysctl.conf
+```
+
+**Issue: Out of disk space**
+```bash
+# Check disk usage
+docker system df
+
+# Clear unused volumes
+docker volume prune
+```
+
+**Issue: Search returns no results**
+1. Check if products exist in MongoDB
+2. Verify sync status: `GET /api/search/admin/sync/status`
+3. Trigger manual sync: `POST /api/search/admin/sync`
+
+
 ---
 
 ## Troubleshooting
@@ -414,7 +507,7 @@ docker logs shopzone-mongodb
 docker logs shopzone-redis
 ```
 
-### Stripe Webhook Not Received 🆕
+### Stripe Webhook Not Received 
 ```bash
 # Ensure Stripe CLI is listening
 stripe listen --forward-to localhost:8080/api/webhooks/stripe
@@ -425,7 +518,7 @@ echo $STRIPE_WEBHOOK_SECRET
 # Check application logs for signature verification errors
 ```
 
-### Invalid Webhook Signature 🆕
+### Invalid Webhook Signature 
 ```bash
 # The webhook secret from `stripe listen` changes each session
 # Copy the new secret and update environment variable:
@@ -434,7 +527,7 @@ export STRIPE_WEBHOOK_SECRET=whsec_new_secret_here
 # Restart the application
 ```
 
-### Payment History Returns 500 Error 🆕
+### Payment History Returns 500 Error 
 ```bash
 # Ensure you're using valid sort fields:
 # Valid: createdAt, amount, status, paidAt
@@ -475,7 +568,7 @@ If you see `could not determine data type of parameter` error:
 - IntelliJ: Click red 🟥 Stop button
 - Terminal: Press `Ctrl + C`
 
-### Stop Stripe CLI 🆕
+### Stop Stripe CLI 
 - Press `Ctrl + C` in the terminal running `stripe listen`
 
 ### Stop Databases
@@ -490,6 +583,13 @@ cd docker
 docker-compose down -v  # Removes all data!
 ```
 
+
+### Elasticsearch Memory Issues
+```yaml
+# In docker-compose.yml, adjust ES_JAVA_OPTS
+environment:
+  - "ES_JAVA_OPTS=-Xms256m -Xmx256m"  # Reduce for low memory
+```
 ---
 
 ## Running Tests
@@ -516,7 +616,7 @@ docker exec -it shopzone-postgres psql -U shopzone_admin -d shopzone
 # View orders
 SELECT order_number, status, payment_status, total_amount FROM orders;
 
-# View payments 🆕
+# View payments 
 SELECT order_number, status, amount, stripe_payment_intent_id FROM payments;
 
 # View MongoDB data
@@ -534,7 +634,7 @@ GET "cart:user-id"
 
 ---
 
-## Stripe Dashboard Verification 🆕
+## Stripe Dashboard Verification 
 
 After testing, check in Stripe Dashboard:
 1. **Payments** → See all test payments
@@ -545,7 +645,7 @@ After testing, check in Stripe Dashboard:
 
 ---
 
-## Production Checklist 🆕
+## Production Checklist 
 
 Before going live with payments:
 
@@ -558,3 +658,19 @@ Before going live with payments:
 - [ ] Configure dispute handling
 - [ ] Test with real cards (small amounts)
 - [ ] Review Stripe's [go-live checklist](https://stripe.com/docs/development/checklist)
+
+### Elasticsearch
+- Enable security (authentication)
+- Configure replicas for high availability
+- Set up proper JVM heap size
+- Enable TLS/SSL
+
+### Environment Variables
+- Use secrets management (AWS Secrets, HashiCorp Vault)
+- Never commit secrets to repository
+- Use different credentials per environment
+
+### Monitoring
+- Set up Elasticsearch monitoring
+- Configure application metrics
+- Enable health checks

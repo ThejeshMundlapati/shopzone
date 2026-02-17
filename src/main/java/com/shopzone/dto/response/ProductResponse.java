@@ -37,6 +37,10 @@ public class ProductResponse {
   private LocalDateTime createdAt;
   private LocalDateTime updatedAt;
 
+  private Double averageRating;
+
+  private Integer reviewCount;
+
   @Data
   @Builder
   @NoArgsConstructor

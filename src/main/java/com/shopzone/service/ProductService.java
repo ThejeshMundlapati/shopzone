@@ -37,6 +37,7 @@ public class ProductService {
   private final CategoryRepository categoryRepository;
   private final CloudinaryService cloudinaryService;
   private final Slugify slugify = Slugify.builder().build();
+  private final ProductSyncService productSyncService;
 
 
   public ProductResponse createProduct(ProductRequest request) {
@@ -75,10 +76,18 @@ public class ProductService {
         .active(request.isActive())
         .featured(request.isFeatured())
         .details(mapProductDetails(request.getDetails()))
+        .averageRating(0.0)
+        .reviewCount(0)
         .build();
 
     Product saved = productRepository.save(product);
     log.info("Product created with ID: {}", saved.getId());
+
+    try {
+      productSyncService.syncProduct(saved);
+    } catch (Exception e) {
+      log.warn("Failed to sync product to Elasticsearch: {}", e.getMessage());
+    }
 
     return buildProductResponse(saved, category.getName());
   }
@@ -195,6 +204,12 @@ public class ProductService {
     Product updated = productRepository.save(product);
     log.info("Product updated: {}", updated.getId());
 
+    try {
+      productSyncService.syncProduct(updated);
+    } catch (Exception e) {
+      log.warn("Failed to sync product to Elasticsearch: {}", e.getMessage());
+    }
+
     return buildProductResponse(updated, category.getName());
   }
 
@@ -276,6 +291,12 @@ public class ProductService {
     Product updated = productRepository.save(product);
     log.info("Product partially updated: {}", updated.getId());
 
+    try {
+      productSyncService.syncProduct(updated);
+    } catch (Exception e) {
+      log.warn("Failed to sync product to Elasticsearch: {}", e.getMessage());
+    }
+
     return buildProductResponse(updated, categoryName);
   }
 
@@ -291,6 +312,13 @@ public class ProductService {
     }
 
     productRepository.delete(product);
+
+    try {
+      productSyncService.removeProduct(id);
+    } catch (Exception e) {
+      log.warn("Failed to remove product from Elasticsearch: {}", e.getMessage());
+    }
+
     log.info("Product deleted: {}", id);
   }
 
@@ -307,6 +335,13 @@ public class ProductService {
     product.getImages().add(imageUrl);
 
     Product updated = productRepository.save(product);
+
+    try {
+      productSyncService.syncProduct(updated);
+    } catch (Exception e) {
+      log.warn("Failed to sync product to Elasticsearch: {}", e.getMessage());
+    }
+
     return buildProductResponse(updated, getCategoryName(updated.getCategoryId()));
   }
 
@@ -322,68 +357,85 @@ public class ProductService {
     }
 
     Product updated = productRepository.save(product);
+
+    try {
+      productSyncService.syncProduct(updated);
+    } catch (Exception e) {
+      log.warn("Failed to sync product to Elasticsearch: {}", e.getMessage());
+    }
+
     return buildProductResponse(updated, getCategoryName(updated.getCategoryId()));
   }
 
-  // ============ NEW - Week 4 (Stock Management Methods) ============
 
-  /**
-   * Get multiple products by IDs.
-   * Useful for cart and order operations.
-   */
   public List<Product> getProductsByIds(List<String> productIds) {
     return productRepository.findByIdIn(productIds);
   }
 
-  /**
-   * Get products as a map for quick lookup.
-   */
   public Map<String, Product> getProductsMapByIds(List<String> productIds) {
     return productRepository.findByIdIn(productIds)
         .stream()
         .collect(Collectors.toMap(Product::getId, Function.identity()));
   }
 
-  /**
-   * Check if product has sufficient stock.
-   */
   public boolean hasSufficientStock(String productId, int quantity) {
     return productRepository.findByIdWithSufficientStock(productId, quantity).isPresent();
   }
 
-  /**
-   * Reduce stock for a product.
-   * Returns true if successful, false if insufficient stock.
-   */
   @Transactional
   public boolean reduceStock(String productId, int quantity) {
     int result = productRepository.reduceStock(productId, quantity, -quantity);
+
+    if (result > 0) {
+      try {
+        productSyncService.syncProductById(productId);
+      } catch (Exception e) {
+        log.warn("Failed to sync stock change to Elasticsearch: {}", e.getMessage());
+      }
+    }
+
     return result > 0;
   }
 
-  /**
-   * Restore stock for a product (e.g., when order is cancelled).
-   */
   @Transactional
   public void restoreStock(String productId, int quantity) {
     productRepository.increaseStock(productId, quantity);
+
+    try {
+      productSyncService.syncProductById(productId);
+    } catch (Exception e) {
+      log.warn("Failed to sync stock change to Elasticsearch: {}", e.getMessage());
+    }
   }
 
-  /**
-   * Get low stock products (admin feature).
-   */
   public List<Product> getLowStockProducts(int threshold) {
     return productRepository.findLowStockProducts(threshold);
   }
 
-  /**
-   * Get out of stock products (admin feature).
-   */
   public List<Product> getOutOfStockProducts() {
     return productRepository.findOutOfStockProducts();
   }
 
-  // ============ END Week 4 ============
+
+  /**
+   * Update product rating (called by ReviewService)
+   */
+  public void updateProductRating(String productId, Double averageRating, Integer reviewCount) {
+    productRepository.findById(productId).ifPresent(product -> {
+      product.setAverageRating(averageRating != null ? averageRating : 0.0);
+      product.setReviewCount(reviewCount != null ? reviewCount : 0);
+      productRepository.save(product);
+
+      try {
+        productSyncService.updateProductRating(productId, averageRating, reviewCount);
+      } catch (Exception e) {
+        log.warn("Failed to sync rating to Elasticsearch: {}", e.getMessage());
+      }
+
+      log.info("Product {} rating updated: avg={}, count={}", productId, averageRating, reviewCount);
+    });
+  }
+
 
 
   private String ensureUniqueSlug(String slug, String excludeId) {
@@ -473,6 +525,8 @@ public class ProductService {
         .active(product.isActive())
         .featured(product.isFeatured())
         .details(mapProductDetailsResponse(product.getDetails()))
+        .averageRating(product.getAverageRating())
+        .reviewCount(product.getReviewCount())
         .createdAt(product.getCreatedAt())
         .updatedAt(product.getUpdatedAt())
         .build();

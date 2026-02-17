@@ -3,9 +3,87 @@
 All notable changes to ShopZone will be documented in this file.
 
 
+
+
+
 ---
 
-## [1.4.0] - 2026-02-12 (Phase 2 Week 5) 🆕
+## [1.5.0] - 2026-02-17
+
+### Added - Reviews & Elasticsearch Search 🆕
+
+#### Product Reviews (PostgreSQL)
+- Review entity with user-product relationship
+- One review per user per product constraint
+- Rating validation (1-5 stars)
+- Verified purchase badge (based on delivered orders)
+- Review statistics with rating distribution
+- Helpful count feature
+- Masked username display for privacy
+
+#### API Endpoints - Reviews
+- `GET /api/reviews/product/{productId}` - Get product reviews with pagination
+- `GET /api/reviews/product/{productId}/stats` - Get review statistics
+- `POST /api/reviews` - Create review (authenticated)
+- `PUT /api/reviews/{id}` - Update own review
+- `DELETE /api/reviews/{id}` - Delete own review
+- `GET /api/reviews/my-reviews` - Get user's reviews
+- `GET /api/reviews/product/{id}/can-review` - Check eligibility
+- `POST /api/reviews/{id}/helpful` - Mark review helpful
+- `DELETE /api/reviews/admin/{id}` - Admin delete any review
+
+#### Elasticsearch Integration
+- Elasticsearch 8.11.0 Docker setup
+- ProductDocument for search index
+- Full-text search across name, description, brand, tags
+- Fuzzy matching for typo tolerance
+- Field boosting for relevance
+
+#### Search Features
+- Multi-field search with relevance scoring
+- Price range filtering
+- Category filtering
+- Brand filtering
+- Minimum rating filtering
+- In-stock filtering
+- Tag filtering
+- Multiple sort options (relevance, price, rating, newest)
+- Pagination support
+
+#### Autocomplete
+- Prefix-based suggestions
+- Product name and brand matching
+- Fuzzy matching support
+- Configurable result limit
+
+#### Similar Products
+- Category-based recommendations
+- Brand matching
+- Price range similarity
+- Configurable limit
+
+#### Admin Sync Operations
+- `POST /api/search/admin/sync` - Full MongoDB to ES sync
+- `GET /api/search/admin/sync/status` - Sync status check
+- `POST /api/search/admin/sync/product/{id}` - Single product sync
+- `POST /api/search/admin/sync/category/{id}` - Category reindex
+
+#### Product Model Updates
+- Added averageRating field to Product
+- Added reviewCount field to Product
+- Auto-sync to Elasticsearch on product changes
+- Rating updates trigger ES sync
+
+#### Infrastructure
+- Elasticsearch 8.11.0 in Docker Compose
+- Spring Data Elasticsearch configuration
+- Product index settings with analyzers
+- Async sync service
+
+---
+
+
+## [1.4.0] - 2026-02-12 (Phase 2 Week 5) 
 
 ### Added
 
@@ -369,7 +447,8 @@ GET    /api/auth/verify-email
 
 | Version | Date       | Phase | Focus |
 |---------|------------|-------|-------|
-| v1.4.0 | 2026-02-12 | 2 | Stripe Payment Integration 🆕 |
+|v1.5.0|2026-02-17|2|Reviews & ElasticSearch🆕|
+| v1.4.0 | 2026-02-12 | 2 | Stripe Payment Integration  |
 | v1.3.0 | 2026-01-29 | 1 | Orders & Checkout |
 | v1.2.0 | 2026-01-16 | 1 | Cart, Wishlist, Address |
 | v1.1.0 | 2026-01-05 | 1 | Product Catalog |

@@ -59,4 +59,12 @@ public interface OrderRepository extends JpaRepository<Order, String> {
   long countOrdersToday(@Param("startOfDay") LocalDateTime startOfDay);
 
   boolean existsByOrderNumber(String orderNumber);
+
+  // ============ NEW - Week 6: Without Pageable (for Review verification) ============
+  /**
+   * Find all orders for a user with specific status.
+   * Used by ReviewService to verify product purchase.
+   */
+  List<Order> findByUserIdAndStatus(String userId, OrderStatus status);
+  // ============ END Week 6 ============
 }

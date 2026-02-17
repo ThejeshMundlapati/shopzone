@@ -9,13 +9,13 @@ import org.springframework.data.mongodb.repository.Update;
 import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 
 @Repository
 public interface ProductRepository extends MongoRepository<Product, String> {
 
-  // ========== Existing Methods (Week 2-3) ==========
 
   Optional<Product> findByIdAndActiveTrue(String id);
 
@@ -73,65 +73,57 @@ public interface ProductRepository extends MongoRepository<Product, String> {
 
   List<Product> findByStockEqualsAndActiveTrue(int stock);
 
-  // ============ NEW - Week 4 (Stock Management) ============
 
-  /**
-   * Find products by list of IDs.
-   * Used to fetch all products in a cart at once.
-   */
   List<Product> findByIdIn(List<String> ids);
 
-  /**
-   * Check if product exists and has sufficient stock.
-   * Returns the product if stock >= required quantity.
-   */
   @Query("{ '_id': ?0, 'stock': { $gte: ?1 }, 'active': true }")
   Optional<Product> findByIdWithSufficientStock(String id, int requiredQuantity);
 
-  /**
-   * Atomically reduce stock for a product.
-   * Only succeeds if current stock >= requiredStock.
-   *
-   * @param productId     The product ID
-   * @param requiredStock Minimum stock required (for validation)
-   * @param reduceBy      Amount to reduce (should be negative, e.g., -5)
-   * @return Number of documents modified (1 if success, 0 if insufficient stock)
-   */
   @Query("{ '_id': ?0, 'stock': { $gte: ?1 } }")
   @Update("{ '$inc': { 'stock': ?2 } }")
   int reduceStock(String productId, int requiredStock, int reduceBy);
 
-  /**
-   * Atomically increase stock for a product.
-   * Used when cancelling orders to restore stock.
-   *
-   * @param productId  The product ID
-   * @param increaseBy Amount to add to stock (positive number)
-   * @return Number of documents modified
-   */
   @Query("{ '_id': ?0 }")
   @Update("{ '$inc': { 'stock': ?1 } }")
   int increaseStock(String productId, int increaseBy);
 
-  /**
-   * Find products with low stock (below threshold).
-   * Useful for admin alerts.
-   */
   @Query("{ 'active': true, 'stock': { $lte: ?0 } }")
   List<Product> findLowStockProducts(int threshold);
 
-  /**
-   * Find out of stock products.
-   */
   @Query("{ 'active': true, 'stock': 0 }")
   List<Product> findOutOfStockProducts();
 
-  /**
-   * Count products by stock status.
-   */
   @Query(value = "{ 'active': true, 'stock': 0 }", count = true)
   long countOutOfStock();
 
   @Query(value = "{ 'active': true, 'stock': { $gt: 0, $lte: ?0 } }", count = true)
   long countLowStock(int threshold);
+
+
+  /**
+   * Find all active products for full Elasticsearch sync
+   */
+  List<Product> findByActiveTrue();
+
+  /**
+   * Count all active products
+   */
+  long countByActiveTrue();
+
+  /**
+   * Find products updated after a certain time (for incremental sync)
+   */
+  List<Product> findByUpdatedAtAfter(LocalDateTime since);
+
+  /**
+   * Find products by average rating (for filtering)
+   */
+  Page<Product> findByAverageRatingGreaterThanEqualAndActiveTrue(Double minRating, Pageable pageable);
+
+  /**
+   * Find top rated products
+   */
+  @Query("{ 'active': true, 'reviewCount': { $gt: 0 } }")
+  Page<Product> findTopRatedProducts(Pageable pageable);
+
 }
