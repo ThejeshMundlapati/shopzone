@@ -35,6 +35,11 @@
         <p><strong>Reason:</strong> <span th:text="${cancellationReason}">Reason</span></p>
         <p><strong>Cancelled By:</strong> <span th:text="${cancelledBy}">User</span></p>
 
+        <div th:if="${totalAmount}" style="margin-top: 20px;">
+            <p><strong>Refund Amount:</strong> $<span th:text="${#numbers.formatDecimal(totalAmount, 1, 2)}">0.00</span></p>
+            <p style="font-size: 13px; color: #666;">Refunds typically take 5-10 business days to appear on your statement.</p>
+        </div>
+
         <div style="margin-top: 20px; padding-top: 20px; border-top: 1px solid #eee;">
             <p>If you have questions or believe this was a mistake, please contact support.</p>
         </div>
