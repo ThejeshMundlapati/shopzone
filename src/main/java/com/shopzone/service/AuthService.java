@@ -31,15 +31,17 @@ public class AuthService {
   private final PasswordEncoder passwordEncoder;
   private final JwtService jwtService;
   private final AuthenticationManager authenticationManager;
+  private final UserService userService;
 
   public AuthService(UserRepository userRepository,
                      PasswordEncoder passwordEncoder,
                      JwtService jwtService,
-                     @Lazy AuthenticationManager authenticationManager) {
+                     @Lazy AuthenticationManager authenticationManager, UserService userService) {
     this.userRepository = userRepository;
     this.passwordEncoder = passwordEncoder;
     this.jwtService = jwtService;
     this.authenticationManager = authenticationManager;
+    this.userService = userService;
   }
 
   public AuthResponse register(RegisterRequest request) {
@@ -62,13 +64,15 @@ public class AuthService {
     User savedUser = userRepository.save(user);
     log.info("User registered successfully: {}", savedUser.getEmail());
 
+    userService.sendWelcomeEmail(user);
+
     String accessToken = jwtService.generateToken(savedUser);
     String refreshToken = jwtService.generateRefreshToken(savedUser);
 
     savedUser.setRefreshToken(refreshToken);
     userRepository.save(savedUser);
 
-    // TODO: Send verification email (will implement in Week 7)
+
     log.info("Verification token for {}: {}", savedUser.getEmail(), verificationToken);
 
     return AuthResponse.of(
@@ -159,7 +163,9 @@ public class AuthService {
     user.setPasswordResetTokenExpiry(LocalDateTime.now().plusHours(1));
     userRepository.save(user);
 
-    // TODO: Send password reset email (will implement in Week 7)
+    userService.sendPasswordResetEmail(user, resetToken);
+
+
     log.info("Password reset token for {}: {}", user.getEmail(), resetToken);
   }
 

@@ -3,16 +3,17 @@ package com.shopzone.service;
 import com.shopzone.config.StripeConfig;
 import com.shopzone.dto.response.PaymentIntentResponse;
 import com.shopzone.dto.response.PaymentResponse;
+import com.shopzone.controller.AdminPaymentController.PaymentStats;
 import com.shopzone.exception.BadRequestException;
 import com.shopzone.exception.ResourceNotFoundException;
 import com.shopzone.model.Order;
 import com.shopzone.model.Payment;
+import com.shopzone.model.User;
 import com.shopzone.model.enums.PaymentMethod;
 import com.shopzone.model.enums.PaymentStatus;
 import com.shopzone.repository.jpa.PaymentRepository;
+import com.shopzone.repository.jpa.UserRepository;
 import com.stripe.model.PaymentIntent;
-import java.math.BigDecimal;
-import java.util.List;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.annotation.Lazy;
@@ -20,9 +21,11 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
-import com.shopzone.controller.AdminPaymentController.PaymentStats;
 
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.util.List;
+import java.util.UUID;
 
 /**
  * Service for payment operations.
@@ -34,8 +37,10 @@ import java.time.LocalDateTime;
 public class PaymentService {
 
   private final PaymentRepository paymentRepository;
+  private final UserRepository userRepository;
   private final StripeService stripeService;
   private final StripeConfig stripeConfig;
+  private final EmailService emailService;
 
   private final @Lazy OrderService orderService;
 
@@ -167,6 +172,18 @@ public class PaymentService {
     orderService.saveOrder(order);
 
     orderService.reduceStockForOrder(order);
+
+    try {
+      User user = userRepository.findById(UUID.fromString(payment.getUserId())).orElse(null);
+      if (user != null) {
+        log.info("Sending order confirmation email for order: {}", order.getOrderNumber());
+        emailService.sendOrderConfirmation(order, user);
+      } else {
+        log.warn("User not found for order {}. Skipping email confirmation.", order.getOrderNumber());
+      }
+    } catch (Exception e) {
+      log.error("Failed to send order confirmation email for order: {}", order.getOrderNumber(), e);
+    }
 
     log.info("Payment completed for order: {}", payment.getOrderNumber());
   }

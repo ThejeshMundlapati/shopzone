@@ -6,6 +6,7 @@ import com.shopzone.model.User;
 import com.shopzone.repository.jpa.UserRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.core.userdetails.UserDetailsService;
 import org.springframework.security.core.userdetails.UsernameNotFoundException;
@@ -21,9 +22,11 @@ public class UserService implements UserDetailsService {
   private static final Logger log = LoggerFactory.getLogger(UserService.class);
 
   private final UserRepository userRepository;
+  private final EmailService emailService;
 
-  public UserService(UserRepository userRepository) {
+  public UserService(UserRepository userRepository, @Lazy EmailService emailService) {
     this.userRepository = userRepository;
+    this.emailService = emailService;
   }
 
   @Override
@@ -52,4 +55,32 @@ public class UserService implements UserDetailsService {
   public boolean existsByEmail(String email) {
     return userRepository.existsByEmail(email.toLowerCase());
   }
+
+
+  /**
+   * Send welcome email to newly registered user.
+   * Called by AuthService after successful registration.
+   */
+  public void sendWelcomeEmail(User user) {
+    try {
+      emailService.sendWelcomeEmail(user);
+      log.info("Welcome email queued for user: {}", user.getEmail());
+    } catch (Exception e) {
+      log.error("Failed to send welcome email to: {}", user.getEmail(), e);
+    }
+  }
+
+  /**
+   * Send password reset email.
+   * Called by AuthService when user requests password reset.
+   */
+  public void sendPasswordResetEmail(User user, String resetToken) {
+    try {
+      emailService.sendPasswordResetEmail(user, resetToken);
+      log.info("Password reset email queued for user: {}", user.getEmail());
+    } catch (Exception e) {
+      log.error("Failed to send password reset email to: {}", user.getEmail(), e);
+    }
+  }
+
 }
