@@ -18,6 +18,7 @@ import java.util.Optional;
 @Repository
 public interface OrderRepository extends JpaRepository<Order, String> {
 
+
   @Query("SELECT o FROM Order o LEFT JOIN FETCH o.items WHERE o.orderNumber = :orderNumber")
   Optional<Order> findByOrderNumberWithItems(@Param("orderNumber") String orderNumber);
 
@@ -60,11 +61,41 @@ public interface OrderRepository extends JpaRepository<Order, String> {
 
   boolean existsByOrderNumber(String orderNumber);
 
-  // ============ NEW - Week 6: Without Pageable (for Review verification) ============
-  /**
-   * Find all orders for a user with specific status.
-   * Used by ReviewService to verify product purchase.
-   */
+
   List<Order> findByUserIdAndStatus(String userId, OrderStatus status);
-  // ============ END Week 6 ============
+
+
+  long countByStatus(OrderStatus status);
+
+  long countByPaymentStatus(PaymentStatus status);
+
+  @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o " +
+      "WHERE o.paymentStatus = 'PAID' AND o.createdAt >= :since")
+  BigDecimal calculateRevenueSince(@Param("since") LocalDateTime since);
+
+  List<Order> findByCreatedAtBetween(LocalDateTime start, LocalDateTime end);
+
+  @Query("SELECT o FROM Order o LEFT JOIN FETCH o.items ORDER BY o.createdAt DESC")
+  List<Order> findRecentOrders(Pageable pageable);
+
+  List<Order> findByStatusIn(List<OrderStatus> statuses);
+
+  List<Order> findByPaymentStatus(PaymentStatus paymentStatus);
+
+  List<Order> findByPaymentStatusAndCreatedAtBetween(
+      PaymentStatus status, LocalDateTime start, LocalDateTime end);
+
+
+  /**
+   * Get total amount spent by a user (from paid orders).
+   */
+  @Query("SELECT COALESCE(SUM(o.totalAmount), 0) FROM Order o " +
+      "WHERE o.userId = :userId AND o.paymentStatus = 'PAID'")
+  BigDecimal getTotalSpentByUser(@Param("userId") String userId);
+
+  /**
+   * Get the date of the user's most recent order.
+   */
+  @Query("SELECT MAX(o.createdAt) FROM Order o WHERE o.userId = :userId")
+  LocalDateTime findLastOrderDateByUserId(@Param("userId") String userId);
 }

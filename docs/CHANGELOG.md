@@ -4,13 +4,147 @@ All notable changes to ShopZone will be documented in this file.
 
 
 
+---
 
+## [1.6.0] - 2026-02-19 (Phase 2 Week 7)
+
+### Added - Email Notifications & Admin Dashboard 🆕
+
+#### Email Notification System
+- Integrated Spring Mail with Mailtrap for email testing
+- Thymeleaf HTML email templates with responsive design
+- Async email sending for non-blocking performance
+- Email logging with status tracking (PENDING, SENT, FAILED)
+- EmailLog entity for persistence in PostgreSQL
+- EmailType and EmailStatus enums for categorization
+
+#### Email Templates
+- `welcome.html` - Welcome email on user registration
+- `order-confirmation.html` - Order confirmation after payment
+- `order-shipped.html` - Shipping notification with tracking info
+- `order-delivered.html` - Delivery confirmation
+- `order-cancelled.html` - Cancellation notice with refund details
+- `password-reset.html` - Password reset link email
+- All templates feature modern, responsive HTML/CSS design
+
+#### Email Integration Points
+- User registration → Welcome email
+- Payment success (webhook) → Order confirmation email
+- Order status → SHIPPED → Shipping notification email
+- Order status → DELIVERED → Delivery confirmation email
+- Order cancellation → Cancellation email with refund info
+- Password reset request → Reset link email
+
+#### Admin Dashboard
+- `GET /api/admin/dashboard/stats` - Comprehensive statistics overview
+- Order counts by status (pending, confirmed, processing, shipped, delivered, cancelled)
+- Revenue totals (today, this week, this month)
+- User registration statistics (today, this week, this month)
+- Product inventory stats (total, low stock, out of stock)
+- Average order value and average rating
+- `GET /api/admin/dashboard/recent-orders` - Recent orders summary
+- `GET /api/admin/dashboard/top-products` - Top selling products
+
+#### Reports & Analytics
+- `GET /api/admin/reports/sales` - Sales reports with period support (daily, weekly, monthly)
+- Custom date range support with startDate/endDate parameters
+- Orders by status breakdown
+- Top-selling products per period
+- `GET /api/admin/reports/users` - User statistics and top customers
+- Total users, active users, new user trends
+- Top customers by order count and spending
+- `GET /api/admin/reports/revenue` - Revenue analytics with trends
+- Current vs previous period comparison
+- Revenue growth percentage
+- Daily revenue breakdown
+- Category sales distribution
+
+#### Admin User Management
+- `GET /api/admin/users` - List all users with pagination and filters
+- `PATCH /api/admin/users/{id}/status` - Enable/disable/lock user accounts
+- `PATCH /api/admin/users/{id}/role` - Update user roles
+- Search users by name or email
+- Filter by role (CUSTOMER, ADMIN)
+
+### Technical
+- Added spring-boot-starter-mail dependency
+- Added spring-boot-starter-thymeleaf dependency
+- Created MailConfig for Thymeleaf template engine configuration
+- Created EmailService with @Async for non-blocking email sending
+- Created EmailLog entity with JPA mappings
+- Created EmailLogRepository for email log persistence
+- Created EmailType enum (WELCOME, ORDER_CONFIRMATION, ORDER_SHIPPED, ORDER_DELIVERED, ORDER_CANCELLED, PASSWORD_RESET)
+- Created EmailStatus enum (PENDING, SENT, FAILED)
+- Created DashboardService for statistics aggregation
+- Created ReportService for analytics generation
+- Created DashboardStatsResponse, RecentOrderSummaryResponse, TopProductResponse DTOs
+- Created SalesReportResponse, UserManagementResponse, RevenueReportResponse DTOs
+- Created DailyRevenueEntry, CategorySalesResponse DTOs
+- Created AdminDashboardController with stats, recent-orders, top-products endpoints
+- Created AdminReportController with sales, users, revenue endpoints
+- Created AdminUserController with user management endpoints
+- Updated OrderRepository with aggregate query methods for reporting
+- Updated UserRepository with registration statistics methods
+- Updated ReviewRepository with average rating method
+- Updated OrderService to trigger email on status changes
+- Updated UserService/AuthService to trigger welcome email on registration
+- Updated PaymentService to trigger order confirmation email
+- Updated SecurityConfig for admin dashboard, reports, and user management endpoints
+
+### API Endpoints Added
+```
+Admin Dashboard:
+GET    /api/admin/dashboard/stats           - Dashboard statistics
+GET    /api/admin/dashboard/recent-orders   - Recent orders
+GET    /api/admin/dashboard/top-products    - Top selling products
+
+Admin Reports:
+GET    /api/admin/reports/sales             - Sales report (daily/weekly/monthly)
+GET    /api/admin/reports/users             - User statistics
+GET    /api/admin/reports/revenue           - Revenue analytics
+
+Admin User Management:
+GET    /api/admin/users                     - List all users
+PATCH  /api/admin/users/{id}/status         - Update user status
+PATCH  /api/admin/users/{id}/role           - Update user role
+```
+
+### Configuration Added
+```yaml
+spring:
+  mail:
+    host: sandbox.smtp.mailtrap.io
+    port: 2525
+    username: ${MAILTRAP_USERNAME}
+    password: ${MAILTRAP_PASSWORD}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+```
+
+### Database Changes
+- Added `email_logs` table with columns:
+  - id, user_id, recipient_email
+  - email_type, subject, status, error_message
+  - order_number
+  - created_at, sent_at
+- Added indexes on: user_id, status, email_type
+
+### Security
+- Admin dashboard endpoints require ADMIN role
+- Admin report endpoints require ADMIN role
+- Admin user management endpoints require ADMIN role
+- Email sending is asynchronous and does not affect main transaction flow
+
+### Fixed
+- Thymeleaf template resolution for email templates (prefix/suffix configuration)
+- Template engine conflict between web and email template resolvers
 
 ---
 
 ## [1.5.0] - 2026-02-17
 
-### Added - Reviews & Elasticsearch Search 🆕
+### Added - Reviews & Elasticsearch Search
 
 #### Product Reviews (PostgreSQL)
 - Review entity with user-product relationship
@@ -83,7 +217,7 @@ All notable changes to ShopZone will be documented in this file.
 ---
 
 
-## [1.4.0] - 2026-02-12 (Phase 2 Week 5) 
+## [1.4.0] - 2026-02-12 (Phase 2 Week 5)
 
 ### Added
 
@@ -99,11 +233,11 @@ All notable changes to ShopZone will be documented in this file.
 - Signature verification for security (webhook secret)
 - Fallback deserialization for API version mismatches
 - Event handlers for:
-    - `payment_intent.succeeded` - Confirms order, reduces stock
-    - `payment_intent.payment_failed` - Updates order status
-    - `payment_intent.canceled` - Handles cancellation
-    - `charge.refunded` - Tracks refunds (audit)
-    - `charge.dispute.created` - Logs disputes
+  - `payment_intent.succeeded` - Confirms order, reduces stock
+  - `payment_intent.payment_failed` - Updates order status
+  - `payment_intent.canceled` - Handles cancellation
+  - `charge.refunded` - Tracks refunds (audit)
+  - `charge.dispute.created` - Logs disputes
 
 #### Refund Processing
 - Full refund support via Stripe Refund API
@@ -116,9 +250,9 @@ All notable changes to ShopZone will be documented in this file.
 #### Payment History
 - User payment history endpoint with pagination
 - Detailed payment information including:
-    - Card details (last 4, brand)
-    - Receipt URLs from Stripe
-    - Refund amounts and status
+  - Card details (last 4, brand)
+  - Receipt URLs from Stripe
+  - Refund amounts and status
 - Valid sort fields: createdAt, amount, status, paidAt
 
 #### Admin Features
@@ -126,16 +260,16 @@ All notable changes to ShopZone will be documented in this file.
 - Process refunds (full or partial)
 - Check refund eligibility for any order
 - Payment statistics dashboard:
-    - Total payments count
-    - Successful/failed payments
-    - Total revenue
-    - Total refunded amount
+  - Total payments count
+  - Successful/failed payments
+  - Total revenue
+  - Total refunded amount
 
 ### Technical
 - Added Stripe Java SDK (v24.18.0)
 - Created Payment entity (PostgreSQL) with indexes
 - Updated PaymentStatus enum with Stripe states:
-    - Added: AWAITING_PAYMENT, PARTIALLY_REFUNDED
+  - Added: AWAITING_PAYMENT, PARTIALLY_REFUNDED
 - Added PaymentMethod enum (CARD, BANK_TRANSFER, WALLET, OTHER)
 - Created StripeConfig for SDK initialization
 - Created StripeService for low-level Stripe operations
@@ -143,12 +277,12 @@ All notable changes to ShopZone will be documented in this file.
 - Created RefundService for refund processing
 - Created StripeWebhookService for event handling
 - Updated Order entity with payment fields:
-    - stripePaymentIntentId, stripeChargeId
-    - receiptUrl, paidAt, amountRefunded
+  - stripePaymentIntentId, stripeChargeId
+  - receiptUrl, paidAt, amountRefunded
 - Updated CheckoutService to set PENDING payment status
 - Updated OrderService with:
-    - reduceStockForOrder (on payment success)
-    - restoreStockForOrder (on refund)
+  - reduceStockForOrder (on payment success)
+  - restoreStockForOrder (on refund)
 - Added PaymentRepository with search queries
 - Updated SecurityConfig for webhook endpoint (public)
 
@@ -193,18 +327,18 @@ shopzone:
 
 ### Database Changes
 - Added `payments` table with columns:
-    - id, order_id, order_number, user_id
-    - stripe_payment_intent_id, stripe_charge_id, stripe_customer_id
-    - client_secret, amount, currency, status, payment_method
-    - card_last_four, card_brand
-    - failure_code, failure_message
-    - amount_refunded, stripe_refund_id, refund_reason
-    - receipt_url, statement_descriptor
-    - created_at, updated_at, paid_at, refunded_at
+  - id, order_id, order_number, user_id
+  - stripe_payment_intent_id, stripe_charge_id, stripe_customer_id
+  - client_secret, amount, currency, status, payment_method
+  - card_last_four, card_brand
+  - failure_code, failure_message
+  - amount_refunded, stripe_refund_id, refund_reason
+  - receipt_url, statement_descriptor
+  - created_at, updated_at, paid_at, refunded_at
 - Added indexes on: order_id, stripe_payment_intent_id, status, user_id
 - Updated `orders` table:
-    - Added: stripe_payment_intent_id, stripe_charge_id, receipt_url
-    - Added: paid_at, amount_refunded
+  - Added: stripe_payment_intent_id, stripe_charge_id, receipt_url
+  - Added: paid_at, amount_refunded
 - Updated `payment_status` check constraint to include new statuses
 
 ### Fixed
@@ -447,9 +581,10 @@ GET    /api/auth/verify-email
 
 | Version | Date       | Phase | Focus |
 |---------|------------|-------|-------|
-|v1.5.0|2026-02-17|2|Reviews & ElasticSearch🆕|
-| v1.4.0 | 2026-02-12 | 2 | Stripe Payment Integration  |
-| v1.3.0 | 2026-01-29 | 1 | Orders & Checkout |
-| v1.2.0 | 2026-01-16 | 1 | Cart, Wishlist, Address |
-| v1.1.0 | 2026-01-05 | 1 | Product Catalog |
-| v1.0.0 | 2025-12-27 | 1 | Authentication |
+| v1.6.0  | 2026-02-19 | 2     | Email Notifications & Admin Dashboard 🆕 |
+| v1.5.0  | 2026-02-17 | 2     | Reviews & Elasticsearch |
+| v1.4.0  | 2026-02-12 | 2     | Stripe Payment Integration |
+| v1.3.0  | 2026-01-29 | 1     | Orders & Checkout |
+| v1.2.0  | 2026-01-16 | 1     | Cart, Wishlist, Address |
+| v1.1.0  | 2026-01-05 | 1     | Product Catalog |
+| v1.0.0  | 2025-12-27 | 1     | Authentication |

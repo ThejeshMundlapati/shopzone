@@ -11,9 +11,11 @@ import com.shopzone.exception.ResourceNotFoundException;
 import com.shopzone.exception.UnauthorizedException;
 import com.shopzone.model.Order;
 import com.shopzone.model.OrderItem;
+import com.shopzone.model.User;
 import com.shopzone.model.enums.OrderStatus;
 import com.shopzone.model.enums.PaymentStatus;
 import com.shopzone.repository.jpa.OrderRepository;
+import com.shopzone.repository.jpa.UserRepository;
 import com.shopzone.repository.mongo.ProductRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -30,6 +32,7 @@ import java.time.temporal.TemporalAdjusters;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 
 @Service
 @RequiredArgsConstructor
@@ -38,7 +41,9 @@ public class OrderService {
 
   private final OrderRepository orderRepository;
   private final ProductRepository productRepository;
+  private final UserRepository userRepository;
   private final OrderConfig orderConfig;
+  private final EmailService emailService;
 
 
   /**
@@ -110,6 +115,8 @@ public class OrderService {
     order = orderRepository.save(order);
     log.info("Order {} cancelled by user {}", orderNumber, userId);
 
+    sendCancellationEmail(order, request.getReason());
+
     return OrderResponse.fromEntity(order);
   }
 
@@ -140,8 +147,6 @@ public class OrderService {
     return OrderResponse.fromEntity(order);
   }
 
-
-
   @Transactional
   public OrderResponse updateOrderStatus(String orderNumber, UpdateOrderStatusRequest request) {
     log.info("Admin updating order {} to status {}", orderNumber, request.getStatus());
@@ -150,18 +155,24 @@ public class OrderService {
         .orElseThrow(() -> new ResourceNotFoundException("Order not found: " + orderNumber));
 
     OrderStatus newStatus = request.getStatus();
+    OrderStatus oldStatus = order.getStatus();
 
     if (!order.getStatus().canTransitionTo(newStatus)) {
       throw new BadRequestException(
           "Invalid status transition from " + order.getStatus() + " to " + newStatus);
     }
 
+    String trackingNumber = null;
+    String carrier = null;
+
     if (newStatus == OrderStatus.SHIPPED) {
       if (request.getTrackingNumber() == null || request.getTrackingNumber().isBlank()) {
         throw new BadRequestException("Tracking number is required when marking order as shipped");
       }
-      order.setTrackingNumber(request.getTrackingNumber());
-      order.setShippingCarrier(request.getShippingCarrier());
+      trackingNumber = request.getTrackingNumber();
+      carrier = request.getShippingCarrier();
+      order.setTrackingNumber(trackingNumber);
+      order.setShippingCarrier(carrier);
     }
 
     if (newStatus == OrderStatus.CANCELLED) {
@@ -178,6 +189,8 @@ public class OrderService {
 
     order = orderRepository.save(order);
     log.info("Order {} status updated to {}", orderNumber, newStatus);
+
+    sendStatusUpdateEmail(order, oldStatus, newStatus, trackingNumber, carrier);
 
     return OrderResponse.fromEntity(order);
   }
@@ -273,7 +286,6 @@ public class OrderService {
 
   /**
    * Reduce stock for all items in an order.
-   * Called by PaymentService when payment succeeds via webhook.
    */
   @Transactional
   public void reduceStockForOrder(Order order) {
@@ -303,6 +315,76 @@ public class OrderService {
     log.info("Restoring stock for order: {}", order.getOrderNumber());
     restoreStock(order);
   }
+
+
+
+  /**
+   * Send email when order status is updated by admin
+   */
+  private void sendStatusUpdateEmail(Order order, OrderStatus oldStatus, OrderStatus newStatus,
+                                     String trackingNumber, String carrier) {
+    try {
+      User user = findUserByOrder(order);
+      if (user == null) {
+        log.warn("Cannot send email - user not found for order: {}", order.getOrderNumber());
+        return;
+      }
+
+      switch (newStatus) {
+        case CONFIRMED:
+          emailService.sendOrderConfirmation(order, user);
+          break;
+        case SHIPPED:
+          emailService.sendOrderShipped(order, user, trackingNumber, carrier);
+          break;
+        case DELIVERED:
+          emailService.sendOrderDelivered(order, user);
+          break;
+        case CANCELLED:
+          BigDecimal refundAmount = order.getPaymentStatus() == PaymentStatus.PAID
+              ? order.getTotalAmount() : null;
+          emailService.sendOrderCancelled(order, user, "Cancelled by admin", refundAmount);
+          break;
+        default:
+          log.debug("No email configured for status transition to: {}", newStatus);
+      }
+    } catch (Exception e) {
+      log.error("Failed to send status update email for order: {}", order.getOrderNumber(), e);
+    }
+  }
+
+  /**
+   * Send cancellation email when user cancels order
+   */
+  private void sendCancellationEmail(Order order, String reason) {
+    try {
+      User user = findUserByOrder(order);
+      if (user == null) {
+        log.warn("Cannot send cancellation email - user not found for order: {}", order.getOrderNumber());
+        return;
+      }
+
+      BigDecimal refundAmount = order.getPaymentStatus() == PaymentStatus.PAID
+          ? order.getTotalAmount() : null;
+      emailService.sendOrderCancelled(order, user, reason, refundAmount);
+    } catch (Exception e) {
+      log.error("Failed to send cancellation email for order: {}", order.getOrderNumber(), e);
+    }
+  }
+
+  /**
+   * Find user by order's userId
+   */
+  private User findUserByOrder(Order order) {
+    try {
+      UUID userId = UUID.fromString(order.getUserId());
+      return userRepository.findById(userId).orElse(null);
+    } catch (Exception e) {
+      log.error("Failed to find user for order: {}", order.getOrderNumber(), e);
+      return null;
+    }
+  }
+
 
 
   /**

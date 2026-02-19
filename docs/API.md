@@ -379,7 +379,7 @@ Response: 200 OK
 
 ---
 
-## 💳 Payment Endpoints 
+## 💳 Payment Endpoints
 
 ### Create Payment Intent
 
@@ -511,7 +511,7 @@ Response: 200 OK
 
 ---
 
-## 🔗 Webhook Endpoint 
+## 🔗 Webhook Endpoint
 
 ### Stripe Webhook Handler
 
@@ -607,7 +607,7 @@ Response: 200 OK
 
 ---
 
-## 👑 Admin Payment Endpoints 
+## 👑 Admin Payment Endpoints
 
 ### Get All Payments (Admin)
 
@@ -711,10 +711,7 @@ Response: 200 OK
 
 ---
 
----
-
-
-## Search Endpoints 🆕
+## 🔍 Search Endpoints
 
 ### Search Products
 ```http
@@ -824,7 +821,7 @@ GET /api/search/similar/{productId}
 
 ---
 
-## Review Endpoints 🆕
+## ⭐ Review Endpoints
 
 ### Get Product Reviews
 ```http
@@ -979,7 +976,7 @@ POST /api/reviews/{reviewId}/helpful
 
 ---
 
-## Admin Search Endpoints 🆕
+## 🔍 Admin Search Endpoints
 
 ### Trigger Full Sync (Admin)
 ```http
@@ -1020,13 +1017,259 @@ DELETE /api/reviews/admin/{reviewId}
 
 ---
 
-## 📊 Order & Payment Status Flow 
+## 📊 Admin Dashboard Endpoints 🆕 (Week 7)
+
+### Get Dashboard Statistics
+```http
+GET /api/admin/dashboard/stats
+
+Response: 200 OK
+{
+  "success": true,
+  "data": {
+    "totalOrders": 150,
+    "pendingOrders": 12,
+    "confirmedOrders": 8,
+    "processingOrders": 15,
+    "shippedOrders": 25,
+    "deliveredOrders": 80,
+    "cancelledOrders": 10,
+    "totalRevenue": 125000.00,
+    "revenueToday": 3500.00,
+    "revenueThisWeek": 18000.00,
+    "revenueThisMonth": 52000.00,
+    "totalUsers": 500,
+    "newUsersToday": 5,
+    "newUsersThisWeek": 22,
+    "newUsersThisMonth": 85,
+    "totalProducts": 200,
+    "lowStockProducts": 12,
+    "outOfStockProducts": 3,
+    "averageOrderValue": 833.33,
+    "averageRating": 4.2
+  }
+}
+```
+
+### Get Recent Orders
+```http
+GET /api/admin/dashboard/recent-orders?limit=10
+
+Response: 200 OK
+{
+  "success": true,
+  "data": [
+    {
+      "orderNumber": "ORD-20260219-0042",
+      "customerName": "John Doe",
+      "totalAmount": 1299.99,
+      "status": "CONFIRMED",
+      "paymentStatus": "PAID",
+      "createdAt": "2026-02-19T10:30:00"
+    }
+  ]
+}
+```
+
+### Get Top Products
+```http
+GET /api/admin/dashboard/top-products?limit=10
+
+Response: 200 OK
+{
+  "success": true,
+  "data": [
+    {
+      "productId": "prod123",
+      "productName": "iPhone 15 Pro",
+      "totalQuantitySold": 150,
+      "totalRevenue": 149850.00
+    }
+  ]
+}
+```
+
+---
+
+## 📈 Admin Report Endpoints 🆕 (Week 7)
+
+### Get Sales Report
+```http
+GET /api/admin/reports/sales?period=weekly
+GET /api/admin/reports/sales?period=daily
+GET /api/admin/reports/sales?period=monthly
+GET /api/admin/reports/sales?startDate=2026-02-01&endDate=2026-02-19
+
+Response: 200 OK
+{
+  "success": true,
+  "data": {
+    "period": "weekly",
+    "startDate": "2026-02-12",
+    "endDate": "2026-02-19",
+    "totalOrders": 45,
+    "totalRevenue": 18000.00,
+    "averageOrderValue": 400.00,
+    "topSellingProducts": [...],
+    "ordersByStatus": {
+      "PENDING": 5,
+      "CONFIRMED": 8,
+      "PROCESSING": 10,
+      "SHIPPED": 12,
+      "DELIVERED": 10
+    }
+  }
+}
+```
+
+### Get User Statistics Report
+```http
+GET /api/admin/reports/users
+
+Response: 200 OK
+{
+  "success": true,
+  "data": {
+    "totalUsers": 500,
+    "activeUsers": 350,
+    "newUsersToday": 5,
+    "newUsersThisWeek": 22,
+    "newUsersThisMonth": 85,
+    "topCustomers": [
+      {
+        "userId": "uuid",
+        "name": "John Doe",
+        "email": "john@example.com",
+        "totalOrders": 15,
+        "totalSpent": 12500.00
+      }
+    ]
+  }
+}
+```
+
+### Get Revenue Analytics
+```http
+GET /api/admin/reports/revenue?period=monthly
+
+Response: 200 OK
+{
+  "success": true,
+  "data": {
+    "period": "monthly",
+    "currentPeriodRevenue": 52000.00,
+    "previousPeriodRevenue": 45000.00,
+    "revenueGrowth": 15.56,
+    "dailyRevenue": [
+      {
+        "date": "2026-02-01",
+        "revenue": 1500.00,
+        "orderCount": 5
+      }
+    ],
+    "categorySales": [
+      {
+        "categoryName": "Electronics",
+        "totalRevenue": 35000.00,
+        "totalOrders": 80,
+        "percentage": 67.3
+      }
+    ]
+  }
+}
+```
+
+---
+
+## 👑 Admin User Management Endpoints 🆕 (Week 7)
+
+### Get All Users
+```http
+GET /api/admin/users?page=0&size=20&role=CUSTOMER&search=john
+
+Response: 200 OK
+{
+  "success": true,
+  "data": {
+    "content": [
+      {
+        "id": "uuid",
+        "email": "john@example.com",
+        "firstName": "John",
+        "lastName": "Doe",
+        "role": "CUSTOMER",
+        "enabled": true,
+        "locked": false,
+        "totalOrders": 5,
+        "totalSpent": 2500.00,
+        "createdAt": "2026-01-15T08:00:00"
+      }
+    ],
+    "totalElements": 100,
+    "totalPages": 5
+  }
+}
+```
+
+### Update User Status (Admin)
+```http
+PATCH /api/admin/users/{userId}/status
+
+Request:
+{
+  "enabled": false,
+  "locked": true
+}
+```
+
+### Update User Role (Admin)
+```http
+PATCH /api/admin/users/{userId}/role
+
+Request:
+{
+  "role": "ADMIN"
+}
+```
+
+---
+
+## 📧 Email Notifications 🆕 (Week 7)
+
+Email notifications are sent automatically during key events. No API endpoints are exposed for email — they are triggered internally.
+
+### Notification Triggers
+
+| Event | Email Sent | Template |
+|-------|-----------|----------|
+| User Registration | Welcome email | `welcome.html` |
+| Order Confirmed (payment success) | Order confirmation | `order-confirmation.html` |
+| Order Shipped | Shipping notification | `order-shipped.html` |
+| Order Delivered | Delivery confirmation | `order-delivered.html` |
+| Order Cancelled | Cancellation notice | `order-cancelled.html` |
+| Password Reset Request | Reset link email | `password-reset.html` |
+
+### Email Logging
+
+All emails are tracked in the `email_logs` table with status (PENDING, SENT, FAILED) and type categorization.
+
+---
+
+## 📊 Order & Payment Status Flow
 
 ### Order Status Flow
 ```
 PENDING → CONFIRMED → PROCESSING → SHIPPED → DELIVERED
     ↓         ↓           ↓           ↓
 CANCELLED CANCELLED   CANCELLED   RETURNED → REFUNDED
+```
+
+### Email Notifications on Status Changes 🆕
+```
+CONFIRMED  → 📧 Order Confirmation Email
+SHIPPED    → 📧 Shipping Notification Email (with tracking)
+DELIVERED  → 📧 Delivery Confirmation Email
+CANCELLED  → 📧 Cancellation Email (with refund info if applicable)
 ```
 
 ### Payment Status Flow
@@ -1097,7 +1340,7 @@ PENDING → AWAITING_PAYMENT → PAID → PARTIALLY_REFUNDED → REFUNDED
 
 ---
 
-## 🧪 Test Cards 
+## 🧪 Test Cards
 
 | Card Number | Scenario |
 |-------------|----------|

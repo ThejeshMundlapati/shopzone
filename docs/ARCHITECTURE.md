@@ -27,7 +27,12 @@
 │  │  Review     │  │   Search    │  │    Sync     │             │
 │  │ Controller  │  │ Controller  │  │  Service    │             │
 │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘             │
-│         │                │                │        (Week 6) 🆕 │
+│         │                │                │                    │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │  Admin      │  │ Admin       │  │  Admin User │             │
+│  │ Dashboard 🆕│  │ Report   🆕 │  │ Controller🆕│             │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  (Week 7)   │
+│         │                │                │                    │
 │  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐             │
 │  │   Auth      │  │  Product    │  │   Order     │             │
 │  │  Service    │  │  Service    │  │  Service    │             │
@@ -40,7 +45,12 @@
 │         │                │                │                    │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
 │  │  Review     │  │   Search    │  │    Sync     │             │
-│  │  Service    │  │  Service    │  │  Service    │ (Week 6) 🆕 │
+│  │  Service    │  │  Service    │  │  Service    │             │
+│  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘             │
+│         │                │                │                    │
+│  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
+│  │  Email   🆕 │  │ Dashboard🆕 │  │  Report  🆕│             │
+│  │  Service    │  │  Service    │  │  Service    │  (Week 7)   │
 │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘             │
 │         │                │                │                    │
 ├─────────┼────────────────┼────────────────┼────────────────────┤
@@ -51,12 +61,18 @@
 │  │   Orders    │  │ Categories  │  │  Wishlist   │  │        │ │
 │  │  Payments   │  │             │  │  Sessions   │  │        │ │
 │  │  Addresses  │  │             │  │             │  │        │ │
-│  │  Reviews 🆕 │  │             │  │             │  │        │ │
+│  │  Reviews    │  │             │  │             │  │        │ │
+│  │ EmailLogs🆕 │  │             │  │             │  │        │ │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └────────┘ │
 │                                                                │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │                    Elasticsearch 🆕                     │   │
+│  │                    Elasticsearch                        │   │
 │  │                    Product Search Index                 │   │
+│  └─────────────────────────────────────────────────────────┘   │
+│                                                                │
+│  ┌─────────────────────────────────────────────────────────┐   │
+│  │                  Mailtrap SMTP 🆕 (Week 7)              │   │
+│  │              Email Testing / Delivery Service           │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └────────────────────────────────────────────────────────────────┘
 ```
@@ -71,11 +87,12 @@ We use different databases for different purposes:
 
 | Database | Use Case | Why |
 |----------|----------|-----|
-| **PostgreSQL** | Users, Orders, Payments, Addresses, Reviews 🆕 | ACID compliance, relational data, transactions |
+| **PostgreSQL** | Users, Orders, Payments, Addresses, Reviews, Email Logs 🆕 | ACID compliance, relational data, transactions |
 | **MongoDB** | Products, Categories | Flexible schema, nested data, fast reads |
 | **Redis** | Cart, Wishlist, Sessions | In-memory speed, TTL support, temporary data |
 | **Stripe** | Payment Processing | PCI compliance, secure payment handling |
-| **Elasticsearch** 🆕 | Product Search | Full-text search, filters, autocomplete |
+| **Elasticsearch** | Product Search | Full-text search, filters, autocomplete |
+| **Mailtrap** 🆕 | Email Testing | Safe email testing without sending to real inboxes |
 
 ---
 
@@ -255,7 +272,7 @@ CREATE TABLE payments (
 );
 ```
 
-### Reviews Table 🆕
+### Reviews Table
 ```sql
 CREATE TABLE reviews (
     id UUID PRIMARY KEY,
@@ -289,6 +306,37 @@ CREATE TABLE reviews (
 );
 ```
 
+### Email Logs Table 🆕 (Week 7)
+```sql
+CREATE TABLE email_logs (
+    id UUID PRIMARY KEY,
+    
+    -- Recipient
+    user_id UUID REFERENCES users(id),
+    recipient_email VARCHAR(255) NOT NULL,
+    
+    -- Email Details
+    email_type VARCHAR(50) NOT NULL,
+    subject VARCHAR(500),
+    
+    -- Status
+    status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+    error_message TEXT,
+    
+    -- Reference
+    order_number VARCHAR(20),
+    
+    -- Timestamps
+    created_at TIMESTAMP,
+    sent_at TIMESTAMP,
+    
+    -- Indexes
+    INDEX idx_email_log_user (user_id),
+    INDEX idx_email_log_status (status),
+    INDEX idx_email_log_type (email_type)
+);
+```
+
 ---
 
 ## MongoDB Schema
@@ -319,8 +367,8 @@ CREATE TABLE reviews (
     "storage": "256GB"
   },
   "active": true,
-  "averageRating": 4.5,        // 🆕 Week 6
-  "reviewCount": 128,          // 🆕 Week 6
+  "averageRating": 4.5,
+  "reviewCount": 128,
   "createdAt": ISODate,
   "updatedAt": ISODate
 }
@@ -343,7 +391,7 @@ CREATE TABLE reviews (
 
 ---
 
-## Elasticsearch Schema 🆕
+## Elasticsearch Schema
 
 ### Products Index
 ```javascript
@@ -409,7 +457,137 @@ TTL: 90 days
 
 ---
 
-## Search Architecture 🆕
+## Email Notification Architecture 🆕 (Week 7)
+
+### Email Flow
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                      EMAIL NOTIFICATION FLOW                    │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   Trigger Events                                                │
+│       │                                                         │
+│       ├──► User Registration ──► Welcome Email                  │
+│       │                                                         │
+│       ├──► Payment Success ──► Order Confirmation Email         │
+│       │    (Webhook)                                            │
+│       │                                                         │
+│       ├──► Status → SHIPPED ──► Shipping Notification Email     │
+│       │    (Admin action)       (includes tracking number)      │
+│       │                                                         │
+│       ├──► Status → DELIVERED ──► Delivery Confirmation Email   │
+│       │    (Admin action)                                       │
+│       │                                                         │
+│       ├──► Order Cancelled ──► Cancellation Email               │
+│       │                        (includes refund info)           │
+│       │                                                         │
+│       └──► Password Reset ──► Password Reset Email              │
+│            (User request)      (includes reset link)            │
+│                                                                 │
+│   Processing                                                    │
+│       │                                                         │
+│       ▼                                                         │
+│   ┌─────────────────────┐                                       │
+│   │   EmailService      │                                       │
+│   │   (@Async)          │                                       │
+│   │                     │                                       │
+│   │ 1. Build context    │                                       │
+│   │    (order details,  │                                       │
+│   │     user info)      │                                       │
+│   │                     │                                       │
+│   │ 2. Resolve template │───────► Thymeleaf Template Engine     │
+│   │    (HTML rendering) │         src/main/resources/templates/ │
+│   │                     │         email/*.html                  │
+│   │                     │                                       │
+│   │ 3. Send via SMTP    │───────► Mailtrap (Dev) / Gmail (Prod) │
+│   │    (JavaMailSender) │                                       │
+│   │                     │                                       │
+│   │ 4. Log result       │───────► PostgreSQL (email_logs)       │
+│   │    (SENT/FAILED)    │                                       │
+│   └─────────────────────┘                                       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Email Templates
+```
+src/main/resources/templates/email/
+├── welcome.html              # New user registration
+├── order-confirmation.html   # Order confirmed after payment
+├── order-shipped.html        # Order shipped with tracking
+├── order-delivered.html      # Order delivered
+├── order-cancelled.html      # Order cancelled (with refund info)
+└── password-reset.html       # Password reset link
+```
+
+### Email Provider Configuration
+```
+┌─────────────────────────────────────────────────────────────────┐
+│              EMAIL PROVIDER SWITCHING                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   Development (Mailtrap):                                       │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │  host: sandbox.smtp.mailtrap.io                         │   │
+│   │  port: 2525                                             │   │
+│   │  All emails caught in Mailtrap inbox                    │   │
+│   │  No real emails sent                                    │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│   Production (Gmail/SendGrid/AWS SES):                          │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │  host: smtp.gmail.com (or provider SMTP)                │   │
+│   │  port: 587                                              │   │
+│   │  Real emails delivered to recipients                    │   │
+│   │  NO CODE CHANGES NEEDED - only application.yml          │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Admin Dashboard Architecture 🆕 (Week 7)
+
+### Dashboard Data Flow
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                  ADMIN DASHBOARD FLOW                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   GET /api/admin/dashboard/stats                                │
+│       │                                                         │
+│       ▼                                                         │
+│   ┌─────────────────────┐                                       │
+│   │  DashboardService   │                                       │
+│   │                     │                                       │
+│   │  Aggregates from:   │                                       │
+│   │  ├── OrderRepository│──► Order counts, revenue totals       │
+│   │  ├── UserRepository │──► User registration stats            │
+│   │  ├── ProductRepo    │──► Product/stock counts (MongoDB)     │
+│   │  └── ReviewRepo     │──► Average ratings                    │
+│   └─────────────────────┘                                       │
+│                                                                 │
+│   GET /api/admin/reports/sales?period=weekly                    │
+│       │                                                         │
+│       ▼                                                         │
+│   ┌─────────────────────┐                                       │
+│   │   ReportService     │                                       │
+│   │                     │                                       │
+│   │  Generates:         │                                       │
+│   │  ├── Daily revenue  │──► JPA aggregate queries              │
+│   │  ├── Weekly summary │──► Date range calculations            │
+│   │  ├── Monthly report │──► Period comparisons                 │
+│   │  ├── Category sales │──► Cross-database joins               │
+│   │  └── Top customers  │──► User spending aggregation          │
+│   └─────────────────────┘                                       │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Search Architecture
 
 ### Search Flow
 ```
@@ -456,7 +634,7 @@ TTL: 90 days
 └─────────────────────────────────────────────────────────────────┘
 ```
 
-### Data Sync Architecture 🆕
+### Data Sync Architecture
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                 MongoDB → Elasticsearch Sync                    │
@@ -485,7 +663,7 @@ TTL: 90 days
 
 ---
 
-## Review System Architecture 🆕
+## Review System Architecture
 
 ### Review Flow
 ```
@@ -605,6 +783,7 @@ TTL: 90 days
 │   │  • Update Payment record (PAID, chargeId, receiptUrl)    │  │
 │   │  • Update Order (CONFIRMED, paidAt)                      │  │
 │   │  • REDUCE STOCK NOW                                      │  │
+│   │  • 📧 Send order confirmation email 🆕                   │  │
 │   └──────────────────────────────────────────────────────────┘  │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
@@ -688,7 +867,7 @@ TTL: 90 days
               ▼            ▼           │
         ┌──────────┐ ┌──────────┐      │
         │CANCELLED │ │CONFIRMED │      │ (After payment)
-        └──────────┘ └────┬─────┘      │
+        └──────────┘ └────┬─────┘      │  📧 Order Confirmation 🆕
                           │            │
                           ▼            │
                    ┌────────────┐      │
@@ -701,14 +880,14 @@ TTL: 90 days
       ┌──────────┐ ┌──────────┐    │   │
       │CANCELLED │ │  SHIPPED │    │   │
       └──────────┘ └────┬─────┘    │   │
-                        │          │   │
+       📧 Cancel 🆕     │  📧 Ship 🆕│
               ┌─────────┼─────────┐│   │
               │         │         ││   │
               ▼         ▼         ││   │
         ┌──────────┐ ┌──────────┐ ││   │
         │DELIVERED │ │ RETURNED │ ││   │
         └──────────┘ └────┬─────┘ ││   │
-                          │       ││   │
+      📧 Deliver 🆕      │       ││   │
                           ▼       ││   │
                     ┌──────────┐  ││   │
                     │ REFUNDED │◄─┴┴───┘
@@ -764,6 +943,9 @@ Since we use multiple databases, we handle distributed transactions carefully:
 │  ┌─────────────────────────────────────────────────────────┐   │
 │  │  1. Update Payment → 2. Update Order → 3. Reduce Stock  │   │
 │  │     (PostgreSQL)       (PostgreSQL)       (MongoDB)     │   │
+│  │                                                         │   │
+│  │  4. Send Confirmation Email (@Async) 🆕                 │   │
+│  │     (Non-blocking, failure doesn't affect transaction)  │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                              │                                 │
 │                              ▼                                 │
@@ -772,6 +954,11 @@ Since we use multiple databases, we handle distributed transactions carefully:
 │  │  - PostgreSQL changes are rolled back automatically     │   │
 │  │  - Webhook returns error (Stripe will retry)            │   │
 │  │  - Log error for manual investigation                   │   │
+│  │                                                         │   │
+│  │  If Email sending fails:                                │   │
+│  │  - Order still processed successfully                   │   │
+│  │  - Email failure logged to email_logs table             │   │
+│  │  - Does NOT affect order/payment transaction            │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                                                                │
 └────────────────────────────────────────────────────────────────┘
@@ -785,8 +972,10 @@ Process Refund:
 2. Update Payment record (PostgreSQL)
 3. Update Order status (PostgreSQL)
 4. Restore stock in MongoDB (optional, compensation)
-5. All succeed → Success
-6. Stock restore fails → Log error, manual intervention needed
+5. Send cancellation email (@Async) 🆕
+6. All succeed → Success
+7. Stock restore fails → Log error, manual intervention needed
+8. Email fails → Logged, doesn't affect refund
 ```
 
 ---
@@ -830,9 +1019,9 @@ Process Refund:
 ### Authorization Levels
 | Role | Permissions |
 |------|-------------|
-| PUBLIC | View products, categories, search 🆕, reviews (read) 🆕, Stripe webhooks |
-| CUSTOMER | Cart, wishlist, orders, addresses, payments, reviews (write) 🆕 |
-| ADMIN | All + product/category CRUD + order/payment management + refunds + search sync 🆕 |
+| PUBLIC | View products, categories, search, reviews (read), Stripe webhooks |
+| CUSTOMER | Cart, wishlist, orders, addresses, payments, reviews (write) |
+| ADMIN | All + product/category CRUD + order/payment management + refunds + search sync + dashboard 🆕 + reports 🆕 + user management 🆕 |
 
 ---
 
@@ -856,10 +1045,19 @@ stripe:
   currency: usd
 
 spring:
-  elasticsearch:                      # 🆕 Week 6
+  elasticsearch:
     uris: http://localhost:9200
     connection-timeout: 5s
     socket-timeout: 30s
+
+  mail:                               # 🆕 Week 7
+    host: sandbox.smtp.mailtrap.io
+    port: 2525
+    username: ${MAILTRAP_USERNAME}
+    password: ${MAILTRAP_PASSWORD}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
 ```
 
 ---
@@ -900,10 +1098,20 @@ spring:
 - Signature verification
 - Event type routing
 
-### 8. Sync Service Pattern 🆕
+### 8. Sync Service Pattern
 - Keeps Elasticsearch in sync with MongoDB
 - Handles create/update/delete events
 - Supports full and incremental sync
+
+### 9. Template Method Pattern 🆕 (Week 7)
+- Thymeleaf templates for email rendering
+- Consistent email structure with variable content
+- Separation of email design from business logic
+
+### 10. Async Processing Pattern 🆕 (Week 7)
+- Email sending is non-blocking (@Async)
+- Doesn't affect main transaction flow
+- Failures logged independently
 
 ---
 

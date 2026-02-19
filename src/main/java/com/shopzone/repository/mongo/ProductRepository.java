@@ -73,7 +73,6 @@ public interface ProductRepository extends MongoRepository<Product, String> {
 
   List<Product> findByStockEqualsAndActiveTrue(int stock);
 
-
   List<Product> findByIdIn(List<String> ids);
 
   @Query("{ '_id': ?0, 'stock': { $gte: ?1 }, 'active': true }")
@@ -100,30 +99,27 @@ public interface ProductRepository extends MongoRepository<Product, String> {
   long countLowStock(int threshold);
 
 
-  /**
-   * Find all active products for full Elasticsearch sync
-   */
   List<Product> findByActiveTrue();
 
-  /**
-   * Count all active products
-   */
   long countByActiveTrue();
 
-  /**
-   * Find products updated after a certain time (for incremental sync)
-   */
   List<Product> findByUpdatedAtAfter(LocalDateTime since);
 
-  /**
-   * Find products by average rating (for filtering)
-   */
   Page<Product> findByAverageRatingGreaterThanEqualAndActiveTrue(Double minRating, Pageable pageable);
 
-  /**
-   * Find top rated products
-   */
   @Query("{ 'active': true, 'reviewCount': { $gt: 0 } }")
   Page<Product> findTopRatedProducts(Pageable pageable);
 
+
+  /**
+   * Count out-of-stock products (stock = 0).
+   */
+  @Query(value = "{ 'stock': 0 }", count = true)
+  long countByStockEquals(int stock);
+
+  /**
+   * Count low stock products (stock between 1 and threshold).
+   */
+  @Query(value = "{ 'stock': { '$gt': 0, '$lte': ?0 } }", count = true)
+  long countLowStockProducts(int threshold);
 }

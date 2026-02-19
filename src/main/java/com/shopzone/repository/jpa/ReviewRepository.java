@@ -55,4 +55,16 @@ public interface ReviewRepository extends JpaRepository<Review, UUID> {
   void deleteByProductId(String productId);
 
   Page<Review> findByProductIdOrderByHelpfulCountDescCreatedAtDesc(String productId, Pageable pageable);
+
+
+  /**
+   * Calculate average rating across all reviews (for dashboard)
+   */
+  @Query("SELECT AVG(r.rating) FROM Review r")
+  Double findAverageRating();
+
+  /**
+   * Count reviews by user ID (for admin user stats).
+   */
+  long countByUserId(UUID userId);
 }
