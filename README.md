@@ -56,7 +56,7 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 
 ### Phase 2: Payment & Advanced Features
 
-#### Week 5: Payment Integration (Stripe) ✅ 🆕
+#### Week 5: Payment Integration (Stripe) ✅
 - [x] Stripe Payment Intent API integration
 - [x] Secure client-side payment confirmation
 - [x] Webhook handling for payment events
@@ -67,7 +67,7 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 - [x] Stock management on payment/refund
 
 
-#### Week 6: Reviews & Search ✅ 🆕
+#### Week 6: Reviews & Search ✅
 - [x] Product reviews with ratings (1-5 stars)
 - [x] Verified purchase badges
 - [x] Review statistics & distribution
@@ -78,8 +78,20 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 - [x] Similar products recommendations
 - [x] MongoDB to Elasticsearch sync
 
+#### Week 7: Email Notifications & Admin Dashboard ✅ 🆕
+- [x] Email notifications for order lifecycle events
+- [x] Welcome email on user registration
+- [x] Thymeleaf HTML email templates with responsive design
+- [x] Async email sending with logging
+- [x] Mailtrap integration for email testing
+- [x] Admin dashboard with comprehensive statistics
+- [x] Sales reports (daily, weekly, monthly)
+- [x] Revenue analytics with period comparisons
+- [x] User management (view, enable/disable, role updates)
+- [x] Top products and category sales breakdown
+
 ### Upcoming
-- [ ] Week 7: Notifications & Admin Dashboard
+- [ ] Week 8: Coupons & Promotions
 
 ## 🛠️ Tech Stack
 
@@ -88,7 +100,9 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 | **Backend** | Java 17, Spring Boot 3.2 |
 | **Security** | Spring Security, JWT |
 | **Databases** | PostgreSQL 15 (Users, Orders, Payments), MongoDB 7 (Products), Redis 7 (Cart) |
-| **Payments** | Stripe API (Test Mode) 🆕 |
+| **Payments** | Stripe API (Test Mode) |
+| **Search** | Elasticsearch 8.11 |
+| **Email** | Spring Mail, Thymeleaf, Mailtrap 🆕 |
 | **Image Storage** | Cloudinary |
 | **Documentation** | Swagger/OpenAPI 3.0 |
 | **Containerization** | Docker, Docker Compose |
@@ -107,15 +121,21 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 │                      Spring Boot Application                    │
 ├─────────────────────────────────────────────────────────────────┤
 │  Auth │ Products │ Cart │ Orders │ Payments │ Reviews │ Search  │
+│       │ Email 🆕 │ Dashboard 🆕 │ Reports 🆕 │ User Mgmt 🆕    │
 └───┬───────┬─────────┬───────┬────────┬─────────┬────────┬───────┘
     │       │         │       │        │         │        │
     ▼       ▼         ▼       ▼        ▼         ▼        ▼
-┌───────┐┌───────┐┌───────┐┌───────┐┌───────┐┌───────┐┌───────────┐
-│Postgre││MongoDB││ Redis ││Postgre││ Stripe││Postgre││Elastic    │
-│  SQL  ││       ││       ││  SQL  ││  API  ││  SQL  ││  Searc    │
-└───────┘└───────┘└───────┘└───────┘└───────┘└───────┘└───────────┘
+┌───────┐┌───────┐┌───────┐┌───────┐┌───────┐┌───────┐┌──────────┐
+│Postgre││MongoDB││ Redis ││Postgre││ Stripe││Postgre││Elastic   │
+│  SQL  ││       ││       ││  SQL  ││  API  ││  SQL  ││  Search  │
+└───────┘└───────┘└───────┘└───────┘└───────┘└───────┘└──────────┘
  Users    Products  Cart    Orders   Payments Reviews   Search
-          Categories Wishlist                           Index
+ EmailLogs Categories Wishlist                          Index
+    │
+    ▼
+┌───────┐
+│SMTP 🆕│  Mailtrap (Dev) / Gmail, SendGrid (Prod)
+└───────┘
 ```
 
 
@@ -128,6 +148,7 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 - Maven 3.8+
 - Stripe Account (for payments)
 - Cloudinary Account (for images)
+- Mailtrap Account (for email testing) 🆕
 
 ### 1. Clone Repository
 ```bash
@@ -161,6 +182,8 @@ export STRIPE_WEBHOOK_SECRET=whsec_...
 export CLOUDINARY_CLOUD_NAME=...
 export CLOUDINARY_API_KEY=...
 export CLOUDINARY_API_SECRET=...
+export MAILTRAP_USERNAME=...            # 🆕
+export MAILTRAP_PASSWORD=...            # 🆕
 ```
 
 ### 6. Run Application
@@ -198,14 +221,14 @@ Authorization: Bearer {admin_token}
 | GET | `/api/categories` | List all categories |
 | POST | `/api/products` | Create product (Admin) |
 
-### Search 🆕
+### Search
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/search` | Search products |
 | GET | `/api/search/autocomplete` | Get suggestions |
 | GET | `/api/search/similar/{id}` | Similar products |
 
-### Reviews 🆕
+### Reviews
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/reviews/product/{id}` | Get reviews |
@@ -235,7 +258,7 @@ Authorization: Bearer {admin_token}
 | GET | `/api/orders/{orderNumber}/track` | Track order |
 | POST | `/api/orders/{orderNumber}/cancel` | Cancel order |
 
-### Payments 
+### Payments
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/payments/create-intent` | Create payment intent |
@@ -243,7 +266,7 @@ Authorization: Bearer {admin_token}
 | GET | `/api/payments/history` | Get payment history |
 | GET | `/api/payments/{orderNumber}/refund-eligibility` | Check refund eligibility |
 
-### Webhooks 
+### Webhooks
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | POST | `/api/webhooks/stripe` | Stripe webhook handler (public) |
@@ -257,7 +280,7 @@ Authorization: Bearer {admin_token}
 | GET | `/api/admin/orders/stats` | Get order statistics |
 | GET | `/api/admin/orders/search` | Search orders |
 
-### Admin Payments 
+### Admin Payments
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/admin/payments` | Get all payments |
@@ -266,27 +289,50 @@ Authorization: Bearer {admin_token}
 | GET | `/api/admin/payments/{orderNumber}/refund-eligibility` | Check refund eligibility |
 | GET | `/api/admin/payments/stats` | Get payment statistics |
 
+### Admin Dashboard 🆕
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/admin/dashboard/stats` | Comprehensive statistics |
+| GET | `/api/admin/dashboard/recent-orders` | Recent orders summary |
+| GET | `/api/admin/dashboard/top-products` | Top selling products |
+
+### Admin Reports 🆕
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/admin/reports/sales` | Sales report (daily/weekly/monthly) |
+| GET | `/api/admin/reports/users` | User statistics & top customers |
+| GET | `/api/admin/reports/revenue` | Revenue analytics & trends |
+
+### Admin User Management 🆕
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| GET | `/api/admin/users` | List all users |
+| PATCH | `/api/admin/users/{id}/status` | Enable/disable user |
+| PATCH | `/api/admin/users/{id}/role` | Update user role |
+
 ## 📁 Project Structure
 
 ```
 shopzone/
 ├── src/main/java/com/shopzone/
-│   ├── config/              # Configuration classes
-│   ├── controller/          # REST controllers
-│   ├── dto/                 # Request/Response DTOs
+│   ├── config/              # Configuration classes (MailConfig 🆕)
+│   ├── controller/          # REST controllers (AdminDashboard, AdminReport, AdminUser 🆕)
+│   ├── dto/                 # Request/Response DTOs (Dashboard, Report DTOs 🆕)
 │   ├── exception/           # Custom exceptions
 │   ├── model/
-│   │   ├── elasticsearch/   # ES documents 🆕
-│   │   ├── enums/
+│   │   ├── elasticsearch/   # ES documents
+│   │   ├── enums/           # Enums (EmailType, EmailStatus 🆕)
 │   │   └── mongo/           # MongoDB documents
 │   ├── repository/
-│   │   ├── elasticsearch/   # ES repositories 🆕
-│   │   ├── jpa/             # PostgreSQL repositories
+│   │   ├── elasticsearch/   # ES repositories
+│   │   ├── jpa/             # PostgreSQL repositories (EmailLogRepository 🆕)
 │   │   └── mongo/           # MongoDB repositories
 │   ├── security/            # JWT filter
-│   └── service/             # Business logic
+│   └── service/             # Business logic (EmailService, DashboardService, ReportService 🆕)
 ├── src/main/resources/
-│   ├── elasticsearch/       # ES index settings 🆕
+│   ├── elasticsearch/       # ES index settings
+│   ├── templates/
+│   │   └── email/           # Thymeleaf email templates 🆕
 │   └── application.yml
 ├── docker/
 │   └── docker-compose.yml
@@ -297,7 +343,7 @@ shopzone/
     └── SETUP.md
 ```
 
-## 💳 Payment Flow 🆕
+## 💳 Payment Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -336,12 +382,33 @@ shopzone/
 │   │  → Order status: CONFIRMED                          │   │
 │   │  → Payment status: PAID                             │   │
 │   │  → Stock REDUCED now                                │   │
+│   │  → 📧 Order confirmation email sent 🆕              │   │
 │   └─────────────────────────────────────────────────────┘   │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 🧪 Test Cards 🆕
+## 📧 Email Notification Flow 🆕
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│               EMAIL NOTIFICATION TRIGGERS                   │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   📧 Welcome Email        ← User Registration              │
+│   📧 Order Confirmation   ← Payment Success (Webhook)      │
+│   📧 Shipping Notice      ← Admin Ships Order              │
+│   📧 Delivery Confirm     ← Admin Delivers Order           │
+│   📧 Cancellation Notice  ← Order Cancelled                │
+│   📧 Password Reset       ← User Requests Reset            │
+│                                                             │
+│   All emails: Async (@Async) → Thymeleaf → SMTP → Mailtrap  │
+│   All emails: Logged to email_logs table                    │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
+## 🧪 Test Cards
 
 | Card Number | Scenario |
 |-------------|----------|

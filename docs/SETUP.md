@@ -42,7 +42,7 @@ xxxx           elasticsearch:8  0.0.0.0:9200->9300/tcp    shopzone-elasticsearch
 ```
 
 
-### 4. Check Elasticsearch Health 🆕 (If not testing stripe, move to step 5)
+### 4. Check Elasticsearch Health (If not testing stripe, move to step 5)
 ```bash
 curl http://localhost:9200/_cluster/health?pretty
 ```
@@ -57,7 +57,7 @@ Expected response:
 ```
 
 
-### 4. Set Up Stripe (Week 5+) 
+### 4. Set Up Stripe (Week 5+)
 ```bash
 # Set environment variables
 export STRIPE_SECRET_KEY=sk_test_your_key_here
@@ -81,11 +81,12 @@ Or in IntelliJ:
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | API Docs | http://localhost:8080/api-docs |
 | Redis Commander | http://localhost:8081 |
+| Mailtrap Inbox 🆕 | https://mailtrap.io/inboxes |
 
 ---
 
 
-## Elasticsearch Setup 🆕
+## Elasticsearch Setup
 
 ### Initial Sync
 After starting the application and creating products:
@@ -128,8 +129,95 @@ curl http://localhost:9200/products/_mapping?pretty
 curl -X DELETE http://localhost:9200/products
 ```
 
+---
 
-## Stripe Setup (Week 5) 
+## Mailtrap Setup (Week 7) 🆕
+
+Mailtrap is a fake SMTP server that catches all outgoing emails for testing. No real emails are delivered.
+
+### Step 1: Create Mailtrap Account
+1. Go to https://mailtrap.io/register
+2. Create a FREE account
+3. Complete email verification
+
+### Step 2: Get SMTP Credentials
+1. Go to **Email Testing → Inboxes → My Inbox**
+2. Click **Show Credentials**
+3. Copy the SMTP settings:
+   - Host: `sandbox.smtp.mailtrap.io`
+   - Port: `2525`
+   - Username: `your_username`
+   - Password: `your_password`
+
+### Step 3: Configure Application
+Add to `application.yml` (already configured):
+```yaml
+spring:
+  mail:
+    host: sandbox.smtp.mailtrap.io
+    port: 2525
+    username: ${MAILTRAP_USERNAME:your_username}
+    password: ${MAILTRAP_PASSWORD:your_password}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+```
+
+Or set environment variables:
+```bash
+export MAILTRAP_USERNAME=your_mailtrap_username
+export MAILTRAP_PASSWORD=your_mailtrap_password
+```
+
+### Step 4: Verify Emails
+1. Register a new user or place an order
+2. Go to https://mailtrap.io/inboxes
+3. You should see the email in your Mailtrap inbox
+
+### Switching to Real Email Provider (Production)
+
+**No code changes needed!** Just update `application.yml` SMTP settings:
+
+```yaml
+# Gmail
+spring:
+  mail:
+    host: smtp.gmail.com
+    port: 587
+    username: your@gmail.com
+    password: your-app-password    # Use App Password, NOT your Gmail password
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
+# SendGrid
+spring:
+  mail:
+    host: smtp.sendgrid.net
+    port: 587
+    username: apikey
+    password: your-sendgrid-api-key
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
+# AWS SES
+spring:
+  mail:
+    host: email-smtp.us-east-1.amazonaws.com
+    port: 587
+    username: your-ses-smtp-username
+    password: your-ses-smtp-password
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+```
+
+> **Gmail App Password:** Go to Google Account → Security → 2-Step Verification → App Passwords → Generate
+
+---
+
+## Stripe Setup (Week 5)
 
 ### Step 1: Create Stripe Account
 1. Go to https://dashboard.stripe.com/register
@@ -271,6 +359,16 @@ spring:
       host: localhost
       port: 6379
 
+  # Mail Configuration 🆕 (Week 7)
+  mail:
+    host: sandbox.smtp.mailtrap.io
+    port: 2525
+    username: ${MAILTRAP_USERNAME:your_username}
+    password: ${MAILTRAP_PASSWORD:your_password}
+    properties:
+      mail.smtp.auth: true
+      mail.smtp.starttls.enable: true
+
 # JWT Configuration
 jwt:
   secret: your-256-bit-secret-key-here-make-it-long-and-random
@@ -339,6 +437,12 @@ export STRIPE_SECRET_KEY=sk_live_your_live_key   # Use LIVE keys in production!
 export STRIPE_PUBLIC_KEY=pk_live_your_live_key
 export STRIPE_WEBHOOK_SECRET=whsec_your_production_webhook_secret
 
+# Email 🆕 (Week 7) - Use real provider in production
+export MAIL_HOST=smtp.gmail.com
+export MAIL_PORT=587
+export MAIL_USERNAME=your@gmail.com
+export MAIL_PASSWORD=your-app-password
+
 # Order Settings
 export ORDER_TAX_RATE=0.08
 export ORDER_FREE_SHIPPING_THRESHOLD=50.00
@@ -402,7 +506,7 @@ docker exec -it shopzone-postgres psql -U shopzone_admin -d shopzone \
 
 ---
 
-## Testing Payments 
+## Testing Payments
 
 ### Test Cards
 
@@ -446,7 +550,37 @@ stripe trigger payment_intent.succeeded --add payment_intent:metadata.orderNumbe
 GET /api/payments/ORD-20260131-XXXX
 ```
 
+5. **Check email notification:** 🆕
+```
+Go to https://mailtrap.io/inboxes - you should see the order confirmation email
+```
 
+---
+
+## Testing Email Notifications 🆕 (Week 7)
+
+### Test Email Triggers
+
+| Action | Expected Email | Check In |
+|--------|---------------|----------|
+| Register new user | Welcome email | Mailtrap inbox |
+| Complete payment (webhook) | Order confirmation | Mailtrap inbox |
+| Admin ships order | Shipping notification | Mailtrap inbox |
+| Admin delivers order | Delivery confirmation | Mailtrap inbox |
+| Cancel order | Cancellation email | Mailtrap inbox |
+
+### Verify Email Logs in Database
+```bash
+docker exec -it shopzone-postgres psql -U shopzone_admin -d shopzone
+
+# View all email logs
+SELECT recipient_email, email_type, status, subject, created_at FROM email_logs ORDER BY created_at DESC;
+
+# Check for failed emails
+SELECT * FROM email_logs WHERE status = 'FAILED';
+```
+
+---
 
 ### Elasticsearch Troubleshooting
 
@@ -507,7 +641,7 @@ docker logs shopzone-mongodb
 docker logs shopzone-redis
 ```
 
-### Stripe Webhook Not Received 
+### Stripe Webhook Not Received
 ```bash
 # Ensure Stripe CLI is listening
 stripe listen --forward-to localhost:8080/api/webhooks/stripe
@@ -518,7 +652,7 @@ echo $STRIPE_WEBHOOK_SECRET
 # Check application logs for signature verification errors
 ```
 
-### Invalid Webhook Signature 
+### Invalid Webhook Signature
 ```bash
 # The webhook secret from `stripe listen` changes each session
 # Copy the new secret and update environment variable:
@@ -527,7 +661,7 @@ export STRIPE_WEBHOOK_SECRET=whsec_new_secret_here
 # Restart the application
 ```
 
-### Payment History Returns 500 Error 
+### Payment History Returns 500 Error
 ```bash
 # Ensure you're using valid sort fields:
 # Valid: createdAt, amount, status, paidAt
@@ -535,6 +669,40 @@ export STRIPE_WEBHOOK_SECRET=whsec_new_secret_here
 
 # Correct request:
 GET /api/payments/history?page=0&size=10&sortBy=createdAt
+```
+
+### Email Not Sending 🆕
+```bash
+# Check Mailtrap credentials
+echo $MAILTRAP_USERNAME
+echo $MAILTRAP_PASSWORD
+
+# Verify SMTP connection in application logs
+# Look for: "Could not connect to SMTP host" errors
+
+# Check email_logs table for error details
+docker exec -it shopzone-postgres psql -U shopzone_admin -d shopzone \
+  -c "SELECT email_type, status, error_message FROM email_logs WHERE status = 'FAILED';"
+
+# Common issues:
+# 1. Wrong Mailtrap credentials → Update application.yml
+# 2. Mailtrap free tier limit reached → Check Mailtrap dashboard
+# 3. Template resolution error → Check templates exist in src/main/resources/templates/email/
+```
+
+### Thymeleaf Template Not Found 🆕
+```bash
+# Ensure templates are in the correct path:
+# src/main/resources/templates/email/welcome.html
+# src/main/resources/templates/email/order-confirmation.html
+# etc.
+
+# Check MailConfig template resolver is configured with correct prefix:
+# prefix: templates/email/
+# suffix: .html
+
+# If using custom TemplateEngine bean, ensure it doesn't conflict
+# with Spring Boot's auto-configured one
 ```
 
 ### MongoDB Authentication Failed
@@ -568,7 +736,7 @@ If you see `could not determine data type of parameter` error:
 - IntelliJ: Click red 🟥 Stop button
 - Terminal: Press `Ctrl + C`
 
-### Stop Stripe CLI 
+### Stop Stripe CLI
 - Press `Ctrl + C` in the terminal running `stripe listen`
 
 ### Stop Databases
@@ -619,6 +787,9 @@ SELECT order_number, status, payment_status, total_amount FROM orders;
 # View payments 
 SELECT order_number, status, amount, stripe_payment_intent_id FROM payments;
 
+# View email logs 🆕
+SELECT recipient_email, email_type, status, sent_at FROM email_logs ORDER BY created_at DESC LIMIT 20;
+
 # View MongoDB data
 docker exec -it shopzone-mongodb mongosh -u root -p rootpassword
 
@@ -634,7 +805,7 @@ GET "cart:user-id"
 
 ---
 
-## Stripe Dashboard Verification 
+## Stripe Dashboard Verification
 
 After testing, check in Stripe Dashboard:
 1. **Payments** → See all test payments
@@ -645,7 +816,7 @@ After testing, check in Stripe Dashboard:
 
 ---
 
-## Production Checklist 
+## Production Checklist
 
 Before going live with payments:
 
@@ -658,6 +829,14 @@ Before going live with payments:
 - [ ] Configure dispute handling
 - [ ] Test with real cards (small amounts)
 - [ ] Review Stripe's [go-live checklist](https://stripe.com/docs/development/checklist)
+
+### Email 🆕
+- [ ] Switch from Mailtrap to production email provider (Gmail/SendGrid/AWS SES)
+- [ ] Configure SPF, DKIM, DMARC records for email deliverability
+- [ ] Set up a dedicated sender email (e.g., noreply@shopzone.com)
+- [ ] Test email delivery with real addresses
+- [ ] Monitor email bounce rates and failures
+- [ ] Configure email rate limiting for production
 
 ### Elasticsearch
 - Enable security (authentication)
@@ -674,3 +853,4 @@ Before going live with payments:
 - Set up Elasticsearch monitoring
 - Configure application metrics
 - Enable health checks
+- Monitor email delivery rates 🆕
