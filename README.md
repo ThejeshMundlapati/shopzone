@@ -78,7 +78,7 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 - [x] Similar products recommendations
 - [x] MongoDB to Elasticsearch sync
 
-#### Week 7: Email Notifications & Admin Dashboard ✅ 🆕
+#### Week 7: Email Notifications & Admin Dashboard ✅ 
 - [x] Email notifications for order lifecycle events
 - [x] Welcome email on user registration
 - [x] Thymeleaf HTML email templates with responsive design
@@ -90,8 +90,36 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 - [x] User management (view, enable/disable, role updates)
 - [x] Top products and category sales breakdown
 
+
+### Phase 3: Frontend Development
+
+#### Week 8-9: React Customer Frontend ✅ 🆕
+- [x] React 19 + Vite 7 + Tailwind CSS 4
+- [x] Redux Toolkit state management (5 slices)
+- [x] JWT auth with automatic token refresh
+- [x] 14 customer pages (Home, Products, Cart, Checkout, Orders, etc.)
+- [x] Stripe payment integration with Elements
+- [x] Elasticsearch search with autocomplete
+- [x] Product reviews with verified purchase badges
+- [x] Responsive design with Tailwind CSS
+
+#### Week 10-11: Admin Dashboard ✅ 🆕
+- [x] Admin dashboard with Recharts data visualization
+- [x] Product management (CRUD + image upload)
+- [x] Category management with hierarchy
+- [x] Order management with status updates and tracking
+- [x] User administration (enable/disable/lock/unlock)
+- [x] Review moderation
+- [x] Reports & analytics (revenue, sales, user growth)
+- [x] Admin settings page
+- [x] Role-based route protection (AdminRoute)
+- [x] Responsive sidebar layout
+
 ### Upcoming
-- [ ] Week 8: Coupons & Promotions
+- [ ] Phase 4: Docker & CI/CD
+- [ ] Phase 5: Microservices + Kafka
+- [ ] Phase 6: Kubernetes & Monitoring
+
 
 ## 🛠️ Tech Stack
 
@@ -102,26 +130,29 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 | **Databases** | PostgreSQL 15 (Users, Orders, Payments), MongoDB 7 (Products), Redis 7 (Cart) |
 | **Payments** | Stripe API (Test Mode) |
 | **Search** | Elasticsearch 8.11 |
-| **Email** | Spring Mail, Thymeleaf, Mailtrap 🆕 |
+| **Email** | Spring Mail, Thymeleaf, Mailtrap  |
 | **Image Storage** | Cloudinary |
 | **Documentation** | Swagger/OpenAPI 3.0 |
 | **Containerization** | Docker, Docker Compose |
-
+| **Frontend** | React 19, Vite 7, Tailwind CSS 4, Redux Toolkit, React Router 7 🆕 |
+| **Charts** | Recharts 🆕 |
+| **Payments (Frontend)** | Stripe.js, React Stripe Elements 🆕 |
 
 ## 🏗️ Architecture
 
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                         Client Layer                            │
-│                    (Web Browser / Mobile App)                   │
+│                    React Frontend (Vite) 🆕                     │
+│         Customer UI (Port 5173) + Admin Dashboard               │
 └─────────────────────────────┬───────────────────────────────────┘
-                              │ HTTP/HTTPS
+                              │ HTTP/REST (Axios + JWT)
                               ▼
 ┌─────────────────────────────────────────────────────────────────┐
 │                      Spring Boot Application                    │
 ├─────────────────────────────────────────────────────────────────┤
 │  Auth │ Products │ Cart │ Orders │ Payments │ Reviews │ Search  │
-│       │ Email 🆕 │ Dashboard 🆕 │ Reports 🆕 │ User Mgmt 🆕    │
+│       │ Email    │ Dashboard │ Reports │ User Mgmt              │
 └───┬───────┬─────────┬───────┬────────┬─────────┬────────┬───────┘
     │       │         │       │        │         │        │
     ▼       ▼         ▼       ▼        ▼         ▼        ▼
@@ -131,12 +162,8 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 └───────┘└───────┘└───────┘└───────┘└───────┘└───────┘└──────────┘
  Users    Products  Cart    Orders   Payments Reviews   Search
  EmailLogs Categories Wishlist                          Index
-    │
-    ▼
-┌───────┐
-│SMTP 🆕│  Mailtrap (Dev) / Gmail, SendGrid (Prod)
-└───────┘
 ```
+
 
 
 # 🚀 Getting Started
@@ -148,7 +175,7 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 - Maven 3.8+
 - Stripe Account (for payments)
 - Cloudinary Account (for images)
-- Mailtrap Account (for email testing) 🆕
+- Mailtrap Account (for email testing) 
 
 ### 1. Clone Repository
 ```bash
@@ -182,8 +209,8 @@ export STRIPE_WEBHOOK_SECRET=whsec_...
 export CLOUDINARY_CLOUD_NAME=...
 export CLOUDINARY_API_KEY=...
 export CLOUDINARY_API_SECRET=...
-export MAILTRAP_USERNAME=...            # 🆕
-export MAILTRAP_PASSWORD=...            # 🆕
+export MAILTRAP_USERNAME=...            
+export MAILTRAP_PASSWORD=...            
 ```
 
 ### 6. Run Application
@@ -296,14 +323,14 @@ Authorization: Bearer {admin_token}
 | GET | `/api/admin/dashboard/recent-orders` | Recent orders summary |
 | GET | `/api/admin/dashboard/top-products` | Top selling products |
 
-### Admin Reports 🆕
+### Admin Reports 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/admin/reports/sales` | Sales report (daily/weekly/monthly) |
 | GET | `/api/admin/reports/users` | User statistics & top customers |
 | GET | `/api/admin/reports/revenue` | Revenue analytics & trends |
 
-### Admin User Management 🆕
+### Admin User Management 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/admin/users` | List all users |
@@ -312,35 +339,53 @@ Authorization: Bearer {admin_token}
 
 ## 📁 Project Structure
 
+
 ```
 shopzone/
-├── src/main/java/com/shopzone/
-│   ├── config/              # Configuration classes (MailConfig 🆕)
-│   ├── controller/          # REST controllers (AdminDashboard, AdminReport, AdminUser 🆕)
-│   ├── dto/                 # Request/Response DTOs (Dashboard, Report DTOs 🆕)
-│   ├── exception/           # Custom exceptions
+├── src/main/java/com/shopzone/    # Backend (Spring Boot)
+│   ├── config/
+│   ├── controller/
+│   ├── dto/
 │   ├── model/
-│   │   ├── elasticsearch/   # ES documents
-│   │   ├── enums/           # Enums (EmailType, EmailStatus 🆕)
-│   │   └── mongo/           # MongoDB documents
 │   ├── repository/
-│   │   ├── elasticsearch/   # ES repositories
-│   │   ├── jpa/             # PostgreSQL repositories (EmailLogRepository 🆕)
-│   │   └── mongo/           # MongoDB repositories
-│   ├── security/            # JWT filter
-│   └── service/             # Business logic (EmailService, DashboardService, ReportService 🆕)
+│   ├── security/
+│   └── service/
 ├── src/main/resources/
-│   ├── elasticsearch/       # ES index settings
-│   ├── templates/
-│   │   └── email/           # Thymeleaf email templates 🆕
+│   ├── templates/email/
 │   └── application.yml
 ├── docker/
 │   └── docker-compose.yml
-└── docs/
-    ├── API.md
-    ├── ARCHITECTURE.md
-    ├── CHANGELOG.md
-    └── SETUP.md
+├── docs/
+│   ├── API.md
+│   ├── ARCHITECTURE.md
+│   ├── CHANGELOG.md
+│   └── SETUP.md
+├── shopzone-frontend/ 🆕          # Frontend (React)
+│   ├── src/
+│   │   ├── components/
+│   │   │   ├── admin/ 🆕          # Admin layout, sidebar, route guard
+│   │   │   ├── cart/
+│   │   │   ├── checkout/
+│   │   │   ├── common/
+│   │   │   └── product/
+│   │   ├── hooks/
+│   │   ├── pages/
+│   │   │   ├── admin/ 🆕          # Dashboard, Products, Orders, Users, etc.
+│   │   │   ├── Home.jsx
+│   │   │   ├── Products.jsx
+│   │   │   └── ... (14 customer pages)
+│   │   ├── services/              # API service layer
+│   │   │   ├── api.js
+│   │   │   ├── adminService.js 🆕
+│   │   │   └── ... (auth, product, cart, order services)
+│   │   ├── store/                 # Redux Toolkit
+│   │   │   ├── adminSlice.js 🆕
+│   │   │   └── ... (auth, cart, product, order, wishlist slices)
+│   │   ├── App.jsx
+│   │   └── main.jsx
+│   ├── package.json
+│   └── vite.config.js
+└── README.md
 ```
 
 ## 💳 Payment Flow
@@ -382,13 +427,13 @@ shopzone/
 │   │  → Order status: CONFIRMED                          │   │
 │   │  → Payment status: PAID                             │   │
 │   │  → Stock REDUCED now                                │   │
-│   │  → 📧 Order confirmation email sent 🆕              │   │
+│   │  → 📧 Order confirmation email sent                 │   │
 │   └─────────────────────────────────────────────────────┘   │
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 📧 Email Notification Flow 🆕
+## 📧 Email Notification Flow  
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -407,6 +452,30 @@ shopzone/
 │                                                             │
 └─────────────────────────────────────────────────────────────┘
 ```
+
+
+## 🖥️ Admin Dashboard 🆕
+
+```
+┌─────────────────────────────────────────────────────────────┐
+│                  ADMIN DASHBOARD PAGES                      │
+├─────────────────────────────────────────────────────────────┤
+│                                                             │
+│   /admin              → Dashboard (stats + charts)          │
+│   /admin/products     → Product CRUD + image upload         │
+│   /admin/categories   → Category management                 │
+│   /admin/orders       → Order list + status updates         │
+│   /admin/users        → User enable/disable/lock            │
+│   /admin/reviews      → Review moderation                   │
+│   /admin/reports      → Revenue, sales, user charts         │
+│   /admin/settings     → System info                         │
+│                                                             │
+│   Charts: Recharts (Area, Bar, Line, Pie)                   │
+│   Access: ADMIN role only (AdminRoute guard)                │
+│                                                             │
+└─────────────────────────────────────────────────────────────┘
+```
+
 
 ## 🧪 Test Cards
 

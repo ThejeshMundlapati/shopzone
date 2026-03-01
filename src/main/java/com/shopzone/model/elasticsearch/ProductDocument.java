@@ -20,7 +20,12 @@ public class ProductDocument {
   @Id
   private String id;
 
-  @Field(type = FieldType.Text, analyzer = "standard")
+  @MultiField(
+      mainField = @Field(type = FieldType.Text, analyzer = "standard"),
+      otherFields = {
+          @InnerField(suffix = "keyword", type = FieldType.Keyword)
+      }
+  )
   private String name;
 
   @Field(type = FieldType.Text, analyzer = "standard")

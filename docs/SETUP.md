@@ -81,9 +81,96 @@ Or in IntelliJ:
 | Swagger UI | http://localhost:8080/swagger-ui.html |
 | API Docs | http://localhost:8080/api-docs |
 | Redis Commander | http://localhost:8081 |
-| Mailtrap Inbox 🆕 | https://mailtrap.io/inboxes |
+| Mailtrap Inbox | https://mailtrap.io/inboxes |
+
 
 ---
+
+## Frontend Setup (Phase 3) 🆕
+
+### Prerequisites (Frontend)
+
+| Software | Version | Download |
+|----------|---------|----------|
+| Node.js | 18+ | [Node.js](https://nodejs.org/) |
+| npm | 9+ | Included with Node.js |
+
+### 1. Install Dependencies
+```bash
+cd shopzone-frontend
+npm install
+```
+
+### 2. Configure Environment
+Create `.env` in `shopzone-frontend/`:
+```env
+VITE_API_BASE_URL=http://localhost:8080
+VITE_STRIPE_PUBLISHABLE_KEY=pk_test_your_key_here
+```
+
+### 3. Start Frontend Dev Server
+```bash
+npx vite --force
+```
+
+The frontend runs at `http://localhost:5173`
+
+### 4. Access the Application
+
+| Page | URL | Description |
+|------|-----|-------------|
+| Customer Store | http://localhost:5173 | Home page |
+| Admin Dashboard | http://localhost:5173/admin | Admin panel (requires ADMIN role) |
+| Backend Swagger | http://localhost:8080/swagger-ui.html | API docs |
+| Frontend (Customer) | http://localhost:5173 | React customer store 🆕 |
+| Frontend (Admin) | http://localhost:5173/admin | Admin dashboard 🆕 |
+
+### 5. Admin Access
+Login with your admin account. If the "Admin" link doesn't appear in the header, verify:
+1. Your user has `role = 'ADMIN'` in PostgreSQL
+2. You logged out and logged back in after the role change
+
+### Frontend Tech Stack
+
+| Technology | Version | Purpose |
+|-----------|---------|---------|
+| React | 19 | UI framework |
+| Vite | 7 | Build tool + dev server |
+| Tailwind CSS | 4 | Styling |
+| Redux Toolkit | 2.x | State management |
+| React Router | 7 | Routing |
+| Axios | 1.x | HTTP client |
+| Recharts | 2.x | Charts (admin dashboard) |
+| Stripe.js | 8.x | Payment UI |
+| React Hot Toast | 2.x | Notifications |
+| React Icons | 5.x | Icons |
+
+### Frontend Project Structure
+```
+shopzone-frontend/
+├── src/
+│   ├── components/
+│   │   ├── admin/         # AdminLayout, Sidebar, Route, StatsCard, DataTable
+│   │   ├── cart/          # CartItem, CartSummary
+│   │   ├── checkout/      # AddressSelector, PaymentForm, OrderSummary
+│   │   ├── common/        # Header, Footer, SearchBar, ProductCard, etc.
+│   │   └── product/       # ProductGallery, ProductInfo, ReviewSection
+│   ├── hooks/             # useAuth, useDebounce, useScrollToTop
+│   ├── pages/
+│   │   ├── admin/         # Dashboard, Products, Orders, Users, Reports, etc.
+│   │   └── *.jsx          # Customer pages (Home, Products, Cart, etc.)
+│   ├── services/          # API service layer (api.js, adminService.js, etc.)
+│   ├── store/             # Redux slices (auth, cart, product, order, wishlist, admin)
+│   ├── App.jsx            # Router with customer + admin routes
+│   └── main.jsx           # Entry point
+├── .env                   # Environment variables (not committed)
+├── .env.example           # Template for .env
+├── package.json
+└── vite.config.js
+```
+
+---
+
 
 
 ## Elasticsearch Setup
@@ -131,7 +218,7 @@ curl -X DELETE http://localhost:9200/products
 
 ---
 
-## Mailtrap Setup (Week 7) 🆕
+## Mailtrap Setup (Week 7) 
 
 Mailtrap is a fake SMTP server that catches all outgoing emails for testing. No real emails are delivered.
 
@@ -359,7 +446,7 @@ spring:
       host: localhost
       port: 6379
 
-  # Mail Configuration 🆕 (Week 7)
+  # Mail Configuration  (Week 7)
   mail:
     host: sandbox.smtp.mailtrap.io
     port: 2525
@@ -437,7 +524,7 @@ export STRIPE_SECRET_KEY=sk_live_your_live_key   # Use LIVE keys in production!
 export STRIPE_PUBLIC_KEY=pk_live_your_live_key
 export STRIPE_WEBHOOK_SECRET=whsec_your_production_webhook_secret
 
-# Email 🆕 (Week 7) - Use real provider in production
+# Email  (Week 7) - Use real provider in production
 export MAIL_HOST=smtp.gmail.com
 export MAIL_PORT=587
 export MAIL_USERNAME=your@gmail.com
@@ -550,14 +637,14 @@ stripe trigger payment_intent.succeeded --add payment_intent:metadata.orderNumbe
 GET /api/payments/ORD-20260131-XXXX
 ```
 
-5. **Check email notification:** 🆕
+5. **Check email notification:** 
 ```
 Go to https://mailtrap.io/inboxes - you should see the order confirmation email
 ```
 
 ---
 
-## Testing Email Notifications 🆕 (Week 7)
+## Testing Email Notifications (Week 7)
 
 ### Test Email Triggers
 
@@ -671,7 +758,7 @@ export STRIPE_WEBHOOK_SECRET=whsec_new_secret_here
 GET /api/payments/history?page=0&size=10&sortBy=createdAt
 ```
 
-### Email Not Sending 🆕
+### Email Not Sending 
 ```bash
 # Check Mailtrap credentials
 echo $MAILTRAP_USERNAME
@@ -690,7 +777,7 @@ docker exec -it shopzone-postgres psql -U shopzone_admin -d shopzone \
 # 3. Template resolution error → Check templates exist in src/main/resources/templates/email/
 ```
 
-### Thymeleaf Template Not Found 🆕
+### Thymeleaf Template Not Found 
 ```bash
 # Ensure templates are in the correct path:
 # src/main/resources/templates/email/welcome.html
@@ -787,7 +874,7 @@ SELECT order_number, status, payment_status, total_amount FROM orders;
 # View payments 
 SELECT order_number, status, amount, stripe_payment_intent_id FROM payments;
 
-# View email logs 🆕
+# View email logs 
 SELECT recipient_email, email_type, status, sent_at FROM email_logs ORDER BY created_at DESC LIMIT 20;
 
 # View MongoDB data
@@ -830,7 +917,7 @@ Before going live with payments:
 - [ ] Test with real cards (small amounts)
 - [ ] Review Stripe's [go-live checklist](https://stripe.com/docs/development/checklist)
 
-### Email 🆕
+### Email 
 - [ ] Switch from Mailtrap to production email provider (Gmail/SendGrid/AWS SES)
 - [ ] Configure SPF, DKIM, DMARC records for email deliverability
 - [ ] Set up a dedicated sender email (e.g., noreply@shopzone.com)
@@ -853,4 +940,4 @@ Before going live with payments:
 - Set up Elasticsearch monitoring
 - Configure application metrics
 - Enable health checks
-- Monitor email delivery rates 🆕
+- Monitor email delivery rates 
