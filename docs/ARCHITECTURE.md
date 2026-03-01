@@ -2,6 +2,111 @@
 
 ## System Overview
 
+
+---
+
+## Frontend Architecture 🆕 (Phase 3)
+
+### Overview
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                   REACT FRONTEND (Vite)                         │
+│                   http://localhost:5173                         │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │                     App.jsx (Router)                    │   │
+│   │                                                         │   │
+│   │   Customer Routes (with Header/Footer):                 │   │
+│   │   /, /products, /cart, /checkout, /orders, /profile     │   │
+│   │                                                         │   │
+│   │   Admin Routes (with AdminLayout/Sidebar):              │   │
+│   │   /admin, /admin/products, /admin/orders, /admin/users  │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                              │                                  │
+│   ┌──────────────────────────┼──────────────────────────────┐   │
+│   │                   Redux Store                           │   │
+│   │  ┌────────┐ ┌───────┐ ┌─────────┐ ┌───────┐ ┌───────┐   │   │
+│   │  │  auth  │ │ cart  │ │products │ │orders │ │ admin │   │   │
+│   │  │ Slice  │ │ Slice │ │  Slice  │ │ Slice │ │ Slice │   │   │
+│   │  └────────┘ └───────┘ └─────────┘ └───────┘ └───────┘   │   │
+│   └──────────────────────────┼──────────────────────────────┘   │
+│                              │                                  │
+│   ┌──────────────────────────┼──────────────────────────────┐   │
+│   │                  Service Layer (Axios)                  │   │
+│   │  api.js → JWT interceptors, auto token refresh          │   │
+│   │  authService, productService, cartService               │   │
+│   │  orderService, adminService                             │   │
+│   └──────────────────────────┼──────────────────────────────┘   │
+│                              │                                  │
+│                              ▼ HTTP/REST                        │
+│                 Spring Boot API (port 8080)                     │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Admin Dashboard Architecture
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                  ADMIN DASHBOARD FLOW                           │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   AdminRoute (role check)                                       │
+│       │                                                         │
+│       ▼                                                         │
+│   AdminLayout                                                   │
+│   ┌───────────────────┬─────────────────────────────────────┐   │
+│   │   AdminSidebar    │        <Outlet /> (page content)    │   │
+│   │                   │                                     │   │
+│   │  Dashboard        │   Dashboard.jsx:                    │   │
+│   │  Products         │   ├── fetchDashboardStats()         │   │
+│   │  Categories       │   ├── fetchRecentOrders()           │   │
+│   │  Orders           │   ├── fetchTopProducts()            │   │
+│   │  Users            │   └── getRevenueReport()            │   │
+│   │  Reviews          │         │                           │   │
+│   │  Reports          │         ▼                           │   │
+│   │  Settings         │   Recharts: Area, Bar, Pie, Line    │   │
+│   │  ─────────────    │                                     │   │
+│   │  Back to Store    │   adminService.js → Axios → API     │   │
+│   └───────────────────┴─────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Route Protection
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    ROUTE PROTECTION                             │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   Public Routes (no auth):                                      │
+│   /, /products, /products/:id, /login, /register                │
+│                                                                 │
+│   ProtectedRoute (authentication required):                     │
+│   /checkout, /orders, /profile, /addresses, /wishlist           │
+│   → Checks: isAuthenticated                                     │
+│   → Redirect: /login                                            │
+│                                                                 │
+│   AdminRoute (ADMIN role required):                             │
+│   /admin, /admin/*, all admin sub-routes                        │
+│   → Checks: isAuthenticated AND user.role === 'ADMIN'           │
+│   → Shows: Access Denied page if not admin                      │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Frontend Design Patterns
+
+| # | Pattern | Where Used |
+|---|---------|-----------|
+| 11 | **Nested Routes + Outlet** 🆕 | Admin layout with persistent sidebar |
+| 12 | **Role-Based Route Guard** 🆕 | AdminRoute checks user.role |
+| 13 | **Render Props (columns)** 🆕 | DataTable component for flexible tables |
+| 14 | **Service Layer** 🆕 | Centralized API calls in service files |
+| 15 | **Slice Pattern** 🆕 | Redux Toolkit slices for state management |
+| 16 | **Composable Charts** 🆕 | Recharts with responsive containers |
+
+
 ```
 ┌─────────────────────────────────────────────────────────────────┐
 │                         Client Layer                            │
@@ -30,7 +135,7 @@
 │         │                │                │                    │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
 │  │  Admin      │  │ Admin       │  │  Admin User │             │
-│  │ Dashboard 🆕│  │ Report   🆕 │  │ Controller🆕│             │
+│  │ Dashboard   │  │ Report      │  │ Controller  │             │
 │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘  (Week 7)   │
 │         │                │                │                    │
 │  ┌──────▼──────┐  ┌──────▼──────┐  ┌──────▼──────┐             │
@@ -49,7 +154,7 @@
 │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘             │
 │         │                │                │                    │
 │  ┌─────────────┐  ┌─────────────┐  ┌─────────────┐             │
-│  │  Email   🆕 │  │ Dashboard🆕 │  │  Report  🆕│             │
+│  │  Email      │  │ Dashboard   │  │  Report     │             │
 │  │  Service    │  │  Service    │  │  Service    │  (Week 7)   │
 │  └──────┬──────┘  └──────┬──────┘  └──────┬──────┘             │
 │         │                │                │                    │
@@ -62,7 +167,7 @@
 │  │  Payments   │  │             │  │  Sessions   │  │        │ │
 │  │  Addresses  │  │             │  │             │  │        │ │
 │  │  Reviews    │  │             │  │             │  │        │ │
-│  │ EmailLogs🆕 │  │             │  │             │  │        │ │
+│  │ EmailLogs   │  │             │  │             │  │        │ │
 │  └─────────────┘  └─────────────┘  └─────────────┘  └────────┘ │
 │                                                                │
 │  ┌─────────────────────────────────────────────────────────┐   │
@@ -71,7 +176,7 @@
 │  └─────────────────────────────────────────────────────────┘   │
 │                                                                │
 │  ┌─────────────────────────────────────────────────────────┐   │
-│  │                  Mailtrap SMTP 🆕 (Week 7)              │   │
+│  │                  Mailtrap SMTP    (Week 7)              │   │
 │  │              Email Testing / Delivery Service           │   │
 │  └─────────────────────────────────────────────────────────┘   │
 └────────────────────────────────────────────────────────────────┘
@@ -87,12 +192,12 @@ We use different databases for different purposes:
 
 | Database | Use Case | Why |
 |----------|----------|-----|
-| **PostgreSQL** | Users, Orders, Payments, Addresses, Reviews, Email Logs 🆕 | ACID compliance, relational data, transactions |
+| **PostgreSQL** | Users, Orders, Payments, Addresses, Reviews, Email Logs  | ACID compliance, relational data, transactions |
 | **MongoDB** | Products, Categories | Flexible schema, nested data, fast reads |
 | **Redis** | Cart, Wishlist, Sessions | In-memory speed, TTL support, temporary data |
 | **Stripe** | Payment Processing | PCI compliance, secure payment handling |
 | **Elasticsearch** | Product Search | Full-text search, filters, autocomplete |
-| **Mailtrap** 🆕 | Email Testing | Safe email testing without sending to real inboxes |
+| **Mailtrap**  | Email Testing | Safe email testing without sending to real inboxes |
 
 ---
 
@@ -306,7 +411,7 @@ CREATE TABLE reviews (
 );
 ```
 
-### Email Logs Table 🆕 (Week 7)
+### Email Logs Table  (Week 7)
 ```sql
 CREATE TABLE email_logs (
     id UUID PRIMARY KEY,
@@ -457,7 +562,7 @@ TTL: 90 days
 
 ---
 
-## Email Notification Architecture 🆕 (Week 7)
+## Email Notification Architecture  (Week 7)
 
 ### Email Flow
 ```
@@ -547,7 +652,7 @@ src/main/resources/templates/email/
 
 ---
 
-## Admin Dashboard Architecture 🆕 (Week 7)
+## Admin Dashboard Architecture  (Week 7)
 
 ### Dashboard Data Flow
 ```
@@ -783,7 +888,7 @@ src/main/resources/templates/email/
 │   │  • Update Payment record (PAID, chargeId, receiptUrl)    │  │
 │   │  • Update Order (CONFIRMED, paidAt)                      │  │
 │   │  • REDUCE STOCK NOW                                      │  │
-│   │  • 📧 Send order confirmation email 🆕                   │  │
+│   │  • 📧 Send order confirmation email                      │  │
 │   └──────────────────────────────────────────────────────────┘  │
 │                                                                 │
 └─────────────────────────────────────────────────────────────────┘
@@ -867,7 +972,7 @@ src/main/resources/templates/email/
               ▼            ▼           │
         ┌──────────┐ ┌──────────┐      │
         │CANCELLED │ │CONFIRMED │      │ (After payment)
-        └──────────┘ └────┬─────┘      │  📧 Order Confirmation 🆕
+        └──────────┘ └────┬─────┘      │  📧 Order Confirmation 
                           │            │
                           ▼            │
                    ┌────────────┐      │
@@ -880,14 +985,14 @@ src/main/resources/templates/email/
       ┌──────────┐ ┌──────────┐    │   │
       │CANCELLED │ │  SHIPPED │    │   │
       └──────────┘ └────┬─────┘    │   │
-       📧 Cancel 🆕     │  📧 Ship 🆕│
+       📧 Cancel        │  📧 Ship    │
               ┌─────────┼─────────┐│   │
               │         │         ││   │
               ▼         ▼         ││   │
         ┌──────────┐ ┌──────────┐ ││   │
         │DELIVERED │ │ RETURNED │ ││   │
         └──────────┘ └────┬─────┘ ││   │
-      📧 Deliver 🆕      │       ││   │
+      📧 Deliver          │       ││   │
                           ▼       ││   │
                     ┌──────────┐  ││   │
                     │ REFUNDED │◄─┴┴───┘
@@ -944,7 +1049,7 @@ Since we use multiple databases, we handle distributed transactions carefully:
 │  │  1. Update Payment → 2. Update Order → 3. Reduce Stock  │   │
 │  │     (PostgreSQL)       (PostgreSQL)       (MongoDB)     │   │
 │  │                                                         │   │
-│  │  4. Send Confirmation Email (@Async) 🆕                 │   │
+│  │  4. Send Confirmation Email (@Async)                    │   │
 │  │     (Non-blocking, failure doesn't affect transaction)  │   │
 │  └─────────────────────────────────────────────────────────┘   │
 │                              │                                 │
@@ -972,7 +1077,7 @@ Process Refund:
 2. Update Payment record (PostgreSQL)
 3. Update Order status (PostgreSQL)
 4. Restore stock in MongoDB (optional, compensation)
-5. Send cancellation email (@Async) 🆕
+5. Send cancellation email (@Async) 
 6. All succeed → Success
 7. Stock restore fails → Log error, manual intervention needed
 8. Email fails → Logged, doesn't affect refund
@@ -1021,7 +1126,7 @@ Process Refund:
 |------|-------------|
 | PUBLIC | View products, categories, search, reviews (read), Stripe webhooks |
 | CUSTOMER | Cart, wishlist, orders, addresses, payments, reviews (write) |
-| ADMIN | All + product/category CRUD + order/payment management + refunds + search sync + dashboard 🆕 + reports 🆕 + user management 🆕 |
+| ADMIN | All + product/category CRUD + order/payment management + refunds + search sync + dashboard  + reports + user management  |
 
 ---
 
@@ -1050,7 +1155,7 @@ spring:
     connection-timeout: 5s
     socket-timeout: 30s
 
-  mail:                               # 🆕 Week 7
+  mail:                               #  Week 7
     host: sandbox.smtp.mailtrap.io
     port: 2525
     username: ${MAILTRAP_USERNAME}
@@ -1103,12 +1208,12 @@ spring:
 - Handles create/update/delete events
 - Supports full and incremental sync
 
-### 9. Template Method Pattern 🆕 (Week 7)
+### 9. Template Method Pattern (Week 7)
 - Thymeleaf templates for email rendering
 - Consistent email structure with variable content
 - Separation of email design from business logic
 
-### 10. Async Processing Pattern 🆕 (Week 7)
+### 10. Async Processing Pattern  (Week 7)
 - Email sending is non-blocking (@Async)
 - Doesn't affect main transaction flow
 - Failures logged independently

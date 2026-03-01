@@ -3,12 +3,164 @@
 All notable changes to ShopZone will be documented in this file.
 
 
+---
+
+## [2.1.0] - 2026-03-01 (Phase 3 Week 10-11)
+
+### Added - Admin Dashboard Frontend 🆕
+
+#### Admin Layout & Navigation
+- Responsive admin sidebar with active state highlighting
+- Top bar with user info and notifications
+- Nested routing with React Router Outlet pattern
+- AdminRoute component for ADMIN role protection
+- Separate admin layout (no customer Header/Footer)
+
+#### Dashboard Page
+- Stats cards grid (revenue, orders, users, products)
+- Revenue over time area chart (Recharts)
+- Order status distribution pie chart
+- Top-selling products horizontal bar chart
+- Recent orders list with status badges
+- Top customers list with spend amounts
+- Secondary stats row (pending, processing, delivered, cancelled)
+
+#### Product Management
+- Product list with search, pagination, stock/status badges
+- Create product form with category dropdown, pricing, stock, tags
+- Edit product with pre-filled form and image management
+- Image upload to Cloudinary and removal
+- Delete product with confirmation dialog
+- Active/Featured toggle controls
+
+#### Category Management
+- Category list with parent, product count, status columns
+- Inline create/edit form (expandable on same page)
+- Parent category dropdown for hierarchy
+- Delete with safety validation
+
+#### Order Management
+- Order list with status and payment status filters
+- Search by order number, email, or customer name
+- Order detail view with items, summary, shipping address
+- Status update flow (PENDING → CONFIRMED → PROCESSING → SHIPPED → DELIVERED)
+- Tracking number and carrier fields for SHIPPED status
+- Admin notes support, cancel order option
+
+#### User Management
+- User list with role filter and name/email search
+- User stats summary cards (total, customers, admins, new in 30d)
+- Enable/disable user accounts
+- Lock/unlock user accounts
+- Order count and total spent per user display
+
+#### Review Moderation
+- Product search and selection for review browsing
+- Review list with ratings, verified purchase badges
+- Admin delete review functionality
+- Helpful count and pagination
+
+#### Reports & Analytics
+- Date range filter (7, 30, 90, 365 days)
+- Revenue over time area chart
+- Orders per day bar chart
+- User registrations line chart
+- Order status breakdown bar chart
+- Sales summary with cancellation rate
+- Top products table for selected period
+- Parallel API fetching with Promise.all
+
+#### Settings Page
+- General tab with store info (read-only)
+- Security tab with active security feature status
+- System Info tab with full tech stack details
+
+### Technical
+- Added `recharts` dependency for data visualization
+- Created `adminService.js` with 30+ API endpoint integrations
+- Created `adminSlice.js` with Redux async thunks for dashboard state
+- Created reusable `StatsCard` and `DataTable` components
+- Updated `store.js` with admin reducer
+- Updated `App.jsx` with nested admin routes under `/admin`
+- Updated `Header.jsx` with Admin link for ADMIN users
+- All admin pages use Tailwind CSS for styling
+- Responsive design with mobile sidebar overlay
+
+### Files Added (18)
+```
+src/services/adminService.js
+src/store/adminSlice.js
+src/components/admin/AdminRoute.jsx
+src/components/admin/AdminLayout.jsx
+src/components/admin/AdminSidebar.jsx
+src/components/admin/StatsCard.jsx
+src/components/admin/DataTable.jsx
+src/pages/admin/Dashboard.jsx
+src/pages/admin/AdminProducts.jsx
+src/pages/admin/AdminProductForm.jsx
+src/pages/admin/AdminCategories.jsx
+src/pages/admin/AdminOrders.jsx
+src/pages/admin/AdminOrderDetail.jsx
+src/pages/admin/AdminUsers.jsx
+src/pages/admin/AdminReviews.jsx
+src/pages/admin/AdminReports.jsx
+src/pages/admin/AdminSettings.jsx
+```
+
+### Files Updated (3)
+```
+src/store/store.js          — Added admin reducer
+src/App.jsx                 — Added admin routes with nested layout
+src/components/common/Header.jsx — Added admin link for ADMIN users
+```
+
+---
+
+## [2.0.0] - 2026-03-01 (Phase 3 Week 8-9)
+
+### Added - React Customer Frontend 🆕
+
+#### Tech Stack
+- React 19 + Vite 7 + Tailwind CSS 4
+- Redux Toolkit for state management (5 slices)
+- React Router 7 for navigation
+- Axios with JWT interceptors and auto token refresh
+- Stripe.js + React Stripe Elements for payment
+- React Hot Toast for notifications
+- React Icons for iconography
+
+#### Customer Pages (14)
+- Home page with hero, categories, featured products
+- Products page with filters, search, sort, pagination
+- Product detail with gallery, info, reviews
+- Cart with item management and summary
+- Multi-step Checkout with address, review, Stripe payment
+- PaymentSuccess and PaymentCancel result pages
+- Orders list with status badges and pagination
+- Order detail with progress tracker and cancellation
+- Profile with edit and password change
+- Addresses with CRUD and default management
+- Wishlist with move-to-cart functionality
+- Login and Register with form validation
+
+#### Infrastructure
+- API service layer (api.js, authService, productService, cartService, orderService, paymentService, reviewService)
+- Redux store with auth, cart, product, order, wishlist slices
+- Custom hooks (useAuth, useDebounce, useScrollToTop)
+- ProtectedRoute for authenticated pages
+- SearchBar with autocomplete suggestions
+- Reusable components (ProductCard, Pagination, StarRating, LoadingSkeleton, EmptyState)
+
+---
+
+<!-- KEEP ALL EXISTING CHANGELOG ENTRIES BELOW (v1.6.0 through v1.0.0) -->
+
 
 ---
 
 ## [1.6.0] - 2026-02-19 (Phase 2 Week 7)
 
-### Added - Email Notifications & Admin Dashboard 🆕
+### Added - Email Notifications & Admin Dashboard 
 
 #### Email Notification System
 - Integrated Spring Mail with Mailtrap for email testing
