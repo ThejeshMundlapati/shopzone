@@ -2,7 +2,6 @@ package com.shopzone.service;
 
 import co.elastic.clients.elasticsearch._types.SortOrder;
 import co.elastic.clients.elasticsearch._types.query_dsl.BoolQuery;
-import co.elastic.clients.elasticsearch._types.query_dsl.Query;
 import com.shopzone.dto.request.ProductSearchRequest;
 import com.shopzone.dto.response.AutocompleteResponse;
 import com.shopzone.dto.response.SearchResultResponse;
@@ -244,7 +243,11 @@ public class ProductSearchService {
 
               if (request.getBrand() != null && !request.getBrand().isBlank()) {
                 builder.filter(f -> f
-                    .term(t -> t.field("brand").value(request.getBrand()))
+                    .wildcard(w -> w
+                        .field("brand")
+                        .wildcard("*" + request.getBrand() + "*")
+                        .caseInsensitive(true)
+                    )
                 );
               }
 
@@ -288,9 +291,9 @@ public class ProductSearchService {
       case "price" -> co.elastic.clients.elasticsearch._types.SortOptions.of(s ->
           s.field(f -> f.field("price").order(order)));
       case "rating" -> co.elastic.clients.elasticsearch._types.SortOptions.of(s ->
-          s.field(f -> f.field("averageRating").order(SortOrder.Desc)));
+          s.field(f -> f.field("averageRating").order(order)));
       case "newest" -> co.elastic.clients.elasticsearch._types.SortOptions.of(s ->
-          s.field(f -> f.field("createdAt").order(SortOrder.Desc)));
+          s.field(f -> f.field("createdAt").order(order)));
       case "name" -> co.elastic.clients.elasticsearch._types.SortOptions.of(s ->
           s.field(f -> f.field("name.keyword").order(order)));
       default -> co.elastic.clients.elasticsearch._types.SortOptions.of(s ->

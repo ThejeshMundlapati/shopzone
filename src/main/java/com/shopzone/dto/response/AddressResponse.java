@@ -1,5 +1,3 @@
-// src/main/java/com/shopzone/dto/response/AddressResponse.java
-
 package com.shopzone.dto.response;
 
 import com.shopzone.model.Address;
