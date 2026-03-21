@@ -93,7 +93,7 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 
 ### Phase 3: Frontend Development
 
-#### Week 8-9: React Customer Frontend ✅ 🆕
+#### Week 8-9: React Customer Frontend ✅ 
 - [x] React 19 + Vite 7 + Tailwind CSS 4
 - [x] Redux Toolkit state management (5 slices)
 - [x] JWT auth with automatic token refresh
@@ -103,7 +103,7 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 - [x] Product reviews with verified purchase badges
 - [x] Responsive design with Tailwind CSS
 
-#### Week 10-11: Admin Dashboard ✅ 🆕
+#### Week 10-11: Admin Dashboard ✅ 
 - [x] Admin dashboard with Recharts data visualization
 - [x] Product management (CRUD + image upload)
 - [x] Category management with hierarchy
@@ -115,8 +115,24 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 - [x] Role-based route protection (AdminRoute)
 - [x] Responsive sidebar layout
 
+### Phase 4: Docker & CI/CD
+
+#### Week 12: Dockerization ✅ 🆕
+- [x] Multi-stage Dockerfile for backend (JDK build → JRE runtime, ~300MB)
+- [x] Multi-stage Dockerfile for frontend (Node build → Nginx runtime, ~25MB)
+- [x] Full-stack docker-compose.yml orchestrating 6 services
+- [x] Nginx reverse proxy with SPA routing, API proxy, gzip compression
+- [x] Docker-specific Spring profile (application-docker.yml)
+- [x] Health checks with startup dependency ordering
+- [x] Container-optimized JVM flags (UseContainerSupport, MaxRAMPercentage)
+- [x] Environment variable management (.env.example template)
+- [x] Stripe CLI Docker service on stripe profile
+- [x] Security headers in Nginx (X-Frame-Options, X-Content-Type-Options)
+- [x] Static asset caching with immutable cache headers
+- 
+
 ### Upcoming
-- [ ] Phase 4: Docker & CI/CD
+- [ ] Phase 4: CI/CD Pipeline
 - [ ] Phase 5: Microservices + Kafka
 - [ ] Phase 6: Kubernetes & Monitoring
 
@@ -134,16 +150,16 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 | **Image Storage** | Cloudinary |
 | **Documentation** | Swagger/OpenAPI 3.0 |
 | **Containerization** | Docker, Docker Compose |
-| **Frontend** | React 19, Vite 7, Tailwind CSS 4, Redux Toolkit, React Router 7 🆕 |
-| **Charts** | Recharts 🆕 |
-| **Payments (Frontend)** | Stripe.js, React Stripe Elements 🆕 |
+| **Frontend** | React 19, Vite 7, Tailwind CSS 4, Redux Toolkit, React Router 7  |
+| **Charts** | Recharts  |
+| **Payments (Frontend)** | Stripe.js, React Stripe Elements  |
 
 ## 🏗️ Architecture
 
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│                    React Frontend (Vite) 🆕                     │
+│                    React Frontend (Vite)                        │
 │         Customer UI (Port 5173) + Admin Dashboard               │
 └─────────────────────────────┬───────────────────────────────────┘
                               │ HTTP/REST (Axios + JWT)
@@ -164,6 +180,37 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
  EmailLogs Categories Wishlist                          Index
 ```
 
+### Docker Architecture (Phase 4) 🆕
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                  Docker Network: shopzone-network               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌──────────────┐          ┌──────────────────────────────┐     │
+│  │   Frontend   │  /api/   │         Backend              │     │
+│  │   (Nginx)    │─────────▶│      (Spring Boot)           │     │
+│  │  :3000→80    │          │         :8080                │     │
+│  │   ~25MB      │          │        ~300MB                │     │
+│  └──────────────┘          └──────┬───┬───┬───┬───────────┘     │
+│                                   │   │   │   │                 │
+│         ┌─────────────────────────┘   │   │   └──────┐          │
+│         ▼                  ▼          ▼              ▼          │
+│  ┌──────────────┐  ┌─────────┐  ┌───────┐  ┌──────────────┐     │
+│  │ PostgreSQL   │  │ MongoDB │  │ Redis │  │Elasticsearch │     │
+│  │   :5432      │  │ :27017  │  │ :6379 │  │   :9200      │     │
+│  └──────────────┘  └─────────┘  └───────┘  └──────────────┘     │
+│                                                                 │
+│  ┌──────────────┐ (Optional, --profile stripe)                  │
+│  │ Stripe CLI   │                                               │
+│  │  Webhooks    │                                               │
+│  └──────────────┘                                               │
+└─────────────────────────────────────────────────────────────────┘
+
+Multi-Stage Builds:
+  Backend:  eclipse-temurin:17-jdk-alpine → eclipse-temurin:17-jre-alpine (~300MB)
+  Frontend: node:22-alpine → nginx:1.27-alpine (~25MB)
+```
 
 
 # 🚀 Getting Started
@@ -229,6 +276,51 @@ After creating products, trigger Elasticsearch sync:
 POST /api/search/admin/sync
 Authorization: Bearer {admin_token}
 ```
+
+### 🐳 Running with Docker (Recommended) 🆕
+
+> **One command to start the entire stack** — no local Java, Node, or database installs needed.
+
+**Prerequisites:** [Docker Desktop](https://www.docker.com/products/docker-desktop/) with 8GB+ RAM allocated
+
+```bash
+# 1. Clone the repo
+git clone https://github.com/ThejeshMundlapati/shopzone.git
+cd shopzone
+
+# 2. Configure environment
+cd docker
+cp .env.example .env
+# Edit .env with your Stripe, Cloudinary, and Mailtrap keys
+
+# 3. Build and start everything
+docker compose up -d --build
+
+# 4. Wait ~2 minutes for all services to become healthy
+docker compose ps   # All should show "healthy"
+
+# 5. Open the app
+#    Frontend:  http://localhost:3000
+#    Swagger:   http://localhost:8080/swagger-ui.html
+#    Backend:   http://localhost:8080/actuator/health
+
+# 6. (Optional) Start with Stripe webhook forwarding
+docker compose --profile stripe up -d
+
+# 7. Stop everything
+docker compose down          # Keep data
+docker compose down -v       # Delete all data
+```
+
+| Service | URL | Technology |
+|---------|-----|------------|
+| Frontend | http://localhost:3000 | React 19 + Nginx |
+| Backend API | http://localhost:8080 | Spring Boot 3.2 |
+| Swagger UI | http://localhost:8080/swagger-ui.html | OpenAPI 3 |
+| PostgreSQL | localhost:5432 | PostgreSQL 15 |
+| MongoDB | localhost:27017 | MongoDB 7.0 |
+| Redis | localhost:6379 | Redis 7 |
+| Elasticsearch | localhost:9200 | Elasticsearch 8.11 |
 
 ## 📚 API Documentation
 
@@ -316,7 +408,7 @@ Authorization: Bearer {admin_token}
 | GET | `/api/admin/payments/{orderNumber}/refund-eligibility` | Check refund eligibility |
 | GET | `/api/admin/payments/stats` | Get payment statistics |
 
-### Admin Dashboard 🆕
+### Admin Dashboard 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/admin/dashboard/stats` | Comprehensive statistics |
@@ -360,26 +452,26 @@ shopzone/
 │   ├── ARCHITECTURE.md
 │   ├── CHANGELOG.md
 │   └── SETUP.md
-├── shopzone-frontend/ 🆕          # Frontend (React)
+├── shopzone-frontend/          # Frontend (React)
 │   ├── src/
 │   │   ├── components/
-│   │   │   ├── admin/ 🆕          # Admin layout, sidebar, route guard
+│   │   │   ├── admin/           # Admin layout, sidebar, route guard
 │   │   │   ├── cart/
 │   │   │   ├── checkout/
 │   │   │   ├── common/
 │   │   │   └── product/
 │   │   ├── hooks/
 │   │   ├── pages/
-│   │   │   ├── admin/ 🆕          # Dashboard, Products, Orders, Users, etc.
+│   │   │   ├── admin/           # Dashboard, Products, Orders, Users, etc.
 │   │   │   ├── Home.jsx
 │   │   │   ├── Products.jsx
 │   │   │   └── ... (14 customer pages)
 │   │   ├── services/              # API service layer
 │   │   │   ├── api.js
-│   │   │   ├── adminService.js 🆕
+│   │   │   ├── adminService.js 
 │   │   │   └── ... (auth, product, cart, order services)
 │   │   ├── store/                 # Redux Toolkit
-│   │   │   ├── adminSlice.js 🆕
+│   │   │   ├── adminSlice.js 
 │   │   │   └── ... (auth, cart, product, order, wishlist slices)
 │   │   ├── App.jsx
 │   │   └── main.jsx
@@ -454,7 +546,7 @@ shopzone/
 ```
 
 
-## 🖥️ Admin Dashboard 🆕
+## 🖥️ Admin Dashboard 
 
 ```
 ┌─────────────────────────────────────────────────────────────┐

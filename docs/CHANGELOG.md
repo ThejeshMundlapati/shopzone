@@ -5,9 +5,56 @@ All notable changes to ShopZone will be documented in this file.
 
 ---
 
+## [2.2.0] - 2026-03-21 — Phase 4 Week 12: Dockerization 🆕
+
+### Added
+- Multi-stage Dockerfile for backend (JDK build → JRE runtime, ~300MB final image)
+- Multi-stage Dockerfile for frontend (Node build → Nginx runtime, ~25MB final image)
+- Full-stack `docker-compose.yml` with 6 services + optional Stripe CLI
+- Nginx reverse proxy configuration (SPA routing, API proxy, gzip compression)
+- Docker-specific Spring profile (`application-docker.yml`)
+- Environment variable management (`.env.example` template, `.env` gitignored)
+- Health checks on all services with startup dependency ordering
+- Container-optimized JVM flags (`UseContainerSupport`, `MaxRAMPercentage`)
+- Security headers in Nginx (`X-Frame-Options`, `X-Content-Type-Options`, `X-XSS-Protection`)
+- Static asset caching with immutable cache headers (1 year for hashed assets)
+- Stripe CLI Docker service on `stripe` profile for containerized webhook forwarding
+- `client_max_body_size 50M` in Nginx for image uploads via Cloudinary
+
+### Fixed
+- Spring Security now permits `/actuator/health` and `/api/payments/webhook` without auth
+- Frontend `.dockerignore` no longer blocks `.env.production` (needed for `VITE_STRIPE_PUBLISHABLE_KEY`)
+- Dockerfile ARG names corrected to match actual Vite env vars (`VITE_API_BASE_URL`, `VITE_STRIPE_PUBLISHABLE_KEY`)
+- Wishlist component field mapping fixed (`price`/`imageUrl` instead of `productPrice`/`productImage`)
+
+### Infrastructure
+- Backend image: ~300MB (from 800MB+ without multi-stage)
+- Frontend image: ~25MB (Nginx + static files only)
+- All 4 databases with health checks and persistent Docker volumes
+- Docker bridge network (`shopzone-network`) for inter-service communication
+- Stripe CLI on optional `stripe` profile: `docker compose --profile stripe up -d`
+
+### Files Added
+```
+docker/docker-compose.yml          — Full-stack orchestration (6 services + Stripe CLI)
+docker/.env.example                — Environment variable template
+docker/application-docker.yml      — Spring profile for Docker
+Dockerfile                         — Backend multi-stage build
+shopzone-frontend/Dockerfile       — Frontend multi-stage build
+shopzone-frontend/nginx.conf       — Nginx reverse proxy config
+shopzone-frontend/.dockerignore    — Docker build exclusions
+```
+
+### Files Updated
+```
+src/.../SecurityConfig.java        — permitAll() for /actuator/health, /api/payments/webhook
+shopzone-frontend/src/pages/Wishlist.jsx — Fixed field mapping (price/imageUrl)
+```
+
+
 ## [2.1.0] - 2026-03-01 (Phase 3 Week 10-11)
 
-### Added - Admin Dashboard Frontend 🆕
+### Added - Admin Dashboard Frontend 
 
 #### Admin Layout & Navigation
 - Responsive admin sidebar with active state highlighting
@@ -118,7 +165,7 @@ src/components/common/Header.jsx — Added admin link for ADMIN users
 
 ## [2.0.0] - 2026-03-01 (Phase 3 Week 8-9)
 
-### Added - React Customer Frontend 🆕
+### Added - React Customer Frontend 
 
 #### Tech Stack
 - React 19 + Vite 7 + Tailwind CSS 4
@@ -733,7 +780,7 @@ GET    /api/auth/verify-email
 
 | Version | Date       | Phase | Focus |
 |---------|------------|-------|-------|
-| v1.6.0  | 2026-02-19 | 2     | Email Notifications & Admin Dashboard 🆕 |
+| v1.6.0  | 2026-02-19 | 2     | Email Notifications & Admin Dashboard  |
 | v1.5.0  | 2026-02-17 | 2     | Reviews & Elasticsearch |
 | v1.4.0  | 2026-02-12 | 2     | Stripe Payment Integration |
 | v1.3.0  | 2026-01-29 | 1     | Orders & Checkout |

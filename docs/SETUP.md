@@ -13,6 +13,82 @@
 
 ---
 
+## Docker Setup (Full Stack) 🆕
+
+### Prerequisites
+- Docker Desktop v4.0+ ([download](https://docker.com/products/docker-desktop))
+- Minimum 8GB RAM allocated to Docker (Settings → Resources)
+- Ports available: 3000, 5432, 6379, 8080, 9200, 27017
+- Stripe, Cloudinary, and Mailtrap accounts (free tiers)
+
+### Quick Start
+```bash
+cd docker
+cp .env.example .env
+# Edit .env with your real API keys (Stripe, Cloudinary, Mailtrap)
+
+docker compose up -d --build
+# Wait ~2 minutes for all services to become healthy
+
+docker compose ps
+# All services should show "healthy" status
+
+# Open the app:
+#   Frontend:  http://localhost:3000
+#   Swagger:   http://localhost:8080/swagger-ui.html
+#   Health:    http://localhost:8080/actuator/health
+```
+
+### Useful Commands
+| Command | Description |
+|---------|-------------|
+| `docker compose up -d --build` | Build and start all services |
+| `docker compose down` | Stop all (keep data) |
+| `docker compose down -v` | Stop all and **DELETE** all data |
+| `docker compose logs -f backend` | Follow backend logs |
+| `docker compose ps` | Check service status and health |
+| `docker compose restart backend` | Restart one service |
+| `docker compose up -d --build backend` | Rebuild and restart one service |
+| `docker compose --profile stripe up -d` | Start all + Stripe webhook forwarding |
+| `docker compose logs stripe-cli` | Check Stripe webhook signing secret |
+
+### Stripe Webhook Testing (Docker)
+```bash
+# Option A: Use the containerized Stripe CLI
+docker compose --profile stripe up -d
+docker compose logs stripe-cli
+# Copy the webhook signing secret (whsec_...) and update STRIPE_WEBHOOK_SECRET in .env
+docker compose restart backend
+
+# Option B: Run Stripe CLI locally (simpler for development)
+stripe listen --forward-to localhost:8080/api/webhooks/stripe
+# Use the displayed webhook secret in your .env file
+```
+
+### Docker Resource Recommendations
+| Service | Memory | Notes |
+|---------|--------|-------|
+| PostgreSQL | ~100MB | Lightweight |
+| MongoDB | ~200MB | Depends on data size |
+| Redis | ~50MB | Very lightweight |
+| Elasticsearch | ~512MB–1GB | Largest consumer |
+| Backend (JVM) | ~256–512MB | Set via `JAVA_OPTS` |
+| Frontend (Nginx) | ~10MB | Very lightweight |
+| **Total** | **~1.5–2.5GB** | Recommend 8GB Docker allocation |
+
+### Docker Troubleshooting
+| Issue | Solution |
+|-------|---------|
+| Backend unhealthy / keeps restarting | Check `docker compose logs backend` — usually a missing env var or database not ready |
+| Elasticsearch exits with code 137 | Increase Docker memory allocation (Settings → Resources → Memory) |
+| Stripe webhooks returning 403 | Ensure `STRIPE_WEBHOOK_SECRET` in `.env` matches the running Stripe CLI secret |
+| Frontend shows blank page | Check browser console; verify `VITE_STRIPE_PUBLISHABLE_KEY` is set in `.env` |
+| MongoDB connection refused | Ensure MongoDB is healthy: `docker compose ps` — MongoDB runs without auth in Docker |
+| Images not uploading | Check Cloudinary credentials in `.env`; Nginx allows up to 50MB (`client_max_body_size`) |
+| Port already in use | Stop conflicting services: `docker compose down` then check with `netstat -ano | findstr :8080` |
+
+---
+
 ## Quick Start
 
 ### 1. Clone Repository
