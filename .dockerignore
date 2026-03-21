@@ -1,0 +1,40 @@
+# ============================================================
+# ShopZone Backend — .dockerignore
+# Place this file at: C:\Users\theje\Desktop\New folder\shopzone\.dockerignore
+# ============================================================
+
+# Git
+.git
+.gitignore
+
+# Build output (we build inside Docker)
+target/
+
+# IDE files
+.idea/
+*.iml
+.vscode/
+*.swp
+
+# Frontend (has its own Dockerfile)
+shopzone-frontend/
+
+# Docker folder (not needed in backend image)
+docker/
+
+# Documentation
+docs/
+*.md
+LICENSE
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.*
+
+# Logs
+*.log
+logs/
