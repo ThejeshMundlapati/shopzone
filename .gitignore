@@ -98,6 +98,10 @@ application-secret.yml
 src/main/resources/application.properties
 src/main/resources/application*.yml
 
+# Docker secrets
+docker/.env
+!docker/.env.example
+
 
 # Logs
 logs/
