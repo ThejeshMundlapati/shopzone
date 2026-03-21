@@ -5,7 +5,7 @@
 
 ---
 
-## Frontend Architecture 🆕 (Phase 3)
+## Frontend Architecture  (Phase 3)
 
 ### Overview
 ```
@@ -97,14 +97,14 @@
 
 ### Frontend Design Patterns
 
-| # | Pattern | Where Used |
-|---|---------|-----------|
-| 11 | **Nested Routes + Outlet** 🆕 | Admin layout with persistent sidebar |
-| 12 | **Role-Based Route Guard** 🆕 | AdminRoute checks user.role |
-| 13 | **Render Props (columns)** 🆕 | DataTable component for flexible tables |
-| 14 | **Service Layer** 🆕 | Centralized API calls in service files |
-| 15 | **Slice Pattern** 🆕 | Redux Toolkit slices for state management |
-| 16 | **Composable Charts** 🆕 | Recharts with responsive containers |
+| # | Pattern                       | Where Used |
+|---|-------------------------------|-----------|
+| 11 | **Nested Routes + Outlet**    | Admin layout with persistent sidebar |
+| 12 | **Role-Based Route Guard**  | AdminRoute checks user.role |
+| 13 | **Render Props (columns)**  | DataTable component for flexible tables |
+| 14 | **Service Layer**           | Centralized API calls in service files |
+| 15 | **Slice Pattern**           | Redux Toolkit slices for state management |
+| 16 | **Composable Charts**       | Recharts with responsive containers |
 
 
 ```
@@ -1241,4 +1241,114 @@ spring:
                     │   Apache Kafka    │
                     │   (Event Bus)     │
                     └───────────────────┘
+                    
+                    
+                    
+                    
+---
+
+## Docker Architecture (Phase 4 — Week 12) 🆕
+
+### Container Topology
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                  Docker Network: shopzone-network               │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│  ┌──────────────┐          ┌──────────────────────────────┐     │
+│  │   Frontend   │  /api/   │         Backend              │     │
+│  │   (Nginx)    │─────────▶│      (Spring Boot)           │     │
+│  │  :3000→80    │          │         :8080                │     │
+│  └──────────────┘          └──────┬───┬───┬───┬───────────┘     │
+│                                   │   │   │   │                 │
+│         ┌─────────────────────────┘   │   │   └──────┐          │
+│         ▼                  ▼          ▼              ▼          │
+│  ┌──────────────┐  ┌─────────┐  ┌───────┐  ┌──────────────┐     │
+│  │ PostgreSQL   │  │ MongoDB │  │ Redis │  │Elasticsearch │     │
+│  │   :5432      │  │ :27017  │  │ :6379 │  │   :9200      │     │
+│  └──────────────┘  └─────────┘  └───────┘  └──────────────┘     │
+│                                                                 │
+│  ┌──────────────┐ (Optional — `--profile stripe`)               │
+│  │ Stripe CLI   │ Forwards webhook events to backend:8080       │
+│  └──────────────┘                                               │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Multi-Stage Build Strategy
+
+| Stage | Backend | Frontend |
+|-------|---------|----------|
+| **Build** | `eclipse-temurin:17-jdk-alpine` — Maven build, produces fat JAR | `node:22-alpine` — `npm ci && npm run build`, produces static files |
+| **Runtime** | `eclipse-temurin:17-jre-alpine` (~300MB) | `nginx:1.27-alpine` (~25MB) |
+| **Optimization** | Container-aware JVM: `-XX:+UseContainerSupport -XX:MaxRAMPercentage=75.0` | Gzip, immutable cache headers, security headers |
+
+### Nginx Responsibilities
+
+```
+┌─────────────────────────────────────────────────────────────────┐
+│                    NGINX REVERSE PROXY                          │
+├─────────────────────────────────────────────────────────────────┤
+│                                                                 │
+│   SPA Routing:                                                  │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │  All non-file requests → index.html                     │   │
+│   │  React Router handles client-side routing               │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│   API Proxy:                                                    │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │  /api/* → proxy_pass http://backend:8080                │   │
+│   │  Uses Docker internal DNS resolution                    │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│   Security Headers:                                             │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │  X-Frame-Options: SAMEORIGIN                            │   │
+│   │  X-Content-Type-Options: nosniff                        │   │
+│   │  X-XSS-Protection: 1; mode=block                        │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+│   Compression & Caching:                                        │
+│   ┌─────────────────────────────────────────────────────────┐   │
+│   │  Gzip: text, JS, CSS, JSON, SVG                         │   │
+│   │  Hashed assets: Cache-Control 1yr + immutable           │   │
+│   │  Upload limit: client_max_body_size 50M                 │   │
+│   └─────────────────────────────────────────────────────────┘   │
+│                                                                 │
+└─────────────────────────────────────────────────────────────────┘
+```
+
+### Environment Configuration
+
+| Context | Config File | Database Hosts | Notes |
+|---------|-------------|----------------|-------|
+| Local Dev (IntelliJ) | `application.yml` | `localhost:*` | Env vars in IntelliJ run config |
+| Docker | `application-docker.yml` | `postgres:5432`, `mongodb:27017`, etc. | Env vars from `docker/.env` |
+
+### Service Health Checks
+
+| Service | Health Check | Interval | Start Period |
+|---------|-------------|----------|--------------|
+| PostgreSQL | `pg_isready` | 10s | — |
+| MongoDB | `mongosh --eval "db.adminCommand('ping')"` | 10s | — |
+| Redis | `redis-cli ping` | 10s | — |
+| Elasticsearch | `curl localhost:9200/_cluster/health` | 30s | 60s |
+| Backend | `wget http://localhost:8080/actuator/health` | 30s | 120s |
+
+### Docker Compose Profiles
+
+| Profile | Command | Services Started |
+|---------|---------|-----------------|
+| (default) | `docker compose up -d` | postgres, mongodb, redis, elasticsearch, backend, frontend |
+| `stripe` | `docker compose --profile stripe up -d` | All above + stripe-cli (webhook forwarding) |
+
+### Docker Design Patterns Used
+
+| # | Pattern | Where Used |
+|---|---------|-----------|
+| 17 | **Multi-Stage Build** 🆕 | Backend & Frontend Dockerfiles — separate build and runtime stages |
+| 18 | **Reverse Proxy** 🆕 | Nginx proxies `/api/` to Spring Boot, serves React SPA |
+| 19 | **Health Check + Dependency Ordering** 🆕 | `depends_on` with `condition: service_healthy` |
+| 20 | **Profile-Based Services** 🆕 | Stripe CLI only runs with `--profile stripe` |
+| 21 | **Environment Templating** 🆕 | `.env.example` committed, `.env` gitignored |
 ```
