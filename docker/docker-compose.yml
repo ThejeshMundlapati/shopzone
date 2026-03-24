@@ -182,8 +182,8 @@ services:
       context: ../shopzone-frontend
       dockerfile: Dockerfile
       args:
-        VITE_API_URL: ""
-        VITE_STRIPE_PUBLIC_KEY: ${STRIPE_PUBLIC_KEY:-pk_test_placeholder}
+        VITE_API_BASE_URL: ""
+        VITE_STRIPE_PUBLISHABLE_KEY: ${STRIPE_PUBLIC_KEY:-pk_test_placeholder}
     container_name: shopzone-frontend
     ports:
       - "3000:80"
