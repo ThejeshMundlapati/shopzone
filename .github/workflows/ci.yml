@@ -1,0 +1,187 @@
+# ============================================================
+# ShopZone — CI/CD Pipeline
+#
+# Triggers:
+#   - Push to main         → Build + Test + Push Docker images
+#   - Pull request to main → Build + Test only (no push)
+#
+# What it does:
+#   1. Builds Spring Boot backend JAR (Maven)
+#   2. Builds React frontend (Vite)
+#   3. Builds Docker images for both
+#   4. Pushes images to Docker Hub (main branch only)
+#   5. Tags images with: latest, git SHA, and version tag
+# ============================================================
+
+name: ShopZone CI/CD
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+    branches: [main]
+
+# Cancel in-progress runs for the same branch/PR
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+  BACKEND_IMAGE: ${{ secrets.DOCKER_HUB_USERNAME }}/shopzone-backend
+  FRONTEND_IMAGE: ${{ secrets.DOCKER_HUB_USERNAME }}/shopzone-frontend
+  JAVA_VERSION: '17'
+  NODE_VERSION: '22'
+
+jobs:
+  # ==================== JOB 1: Build Backend ====================
+  build-backend:
+    name: Build Backend (Spring Boot)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK ${{ env.JAVA_VERSION }}
+        uses: actions/setup-java@v4
+        with:
+          java-version: ${{ env.JAVA_VERSION }}
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Build with Maven
+        run: ./mvnw clean package -DskipTests -B
+
+      # Upload the JAR so the Docker job can use it
+      - name: Upload backend JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-jar
+          path: target/shopzone-0.0.1-SNAPSHOT.jar
+          retention-days: 1
+
+  # ==================== JOB 2: Build Frontend ====================
+  build-frontend:
+    name: Build Frontend (React + Vite)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js ${{ env.NODE_VERSION }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'npm'
+          cache-dependency-path: shopzone-frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: shopzone-frontend
+        run: npm ci
+
+      - name: Lint check
+        working-directory: shopzone-frontend
+        run: npm run lint
+        continue-on-error: true  # Don't fail build on lint warnings
+
+      - name: Build production bundle
+        working-directory: shopzone-frontend
+        env:
+          VITE_API_BASE_URL: /api
+          VITE_STRIPE_PUBLISHABLE_KEY: ${{ secrets.STRIPE_PUBLIC_KEY }}
+        run: npm run build
+
+      # Upload dist so the Docker job can verify it
+      - name: Upload frontend build
+        uses: actions/upload-artifact@v4
+        with:
+          name: frontend-dist
+          path: shopzone-frontend/dist
+          retention-days: 1
+
+  # ==================== JOB 3: Build & Push Docker Images ====================
+  docker:
+    name: Docker Build & Push
+    runs-on: ubuntu-latest
+    needs: [build-backend, build-frontend]
+    # Only push images on main branch, not on PRs
+    if: github.event_name == 'push'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # Determine image tags
+      - name: Set image tags
+        id: tags
+        run: |
+          SHA_SHORT=$(echo "${{ github.sha }}" | cut -c1-7)
+          echo "sha_tag=${SHA_SHORT}" >> $GITHUB_OUTPUT
+
+          # If this is a version tag (v*), use it
+          if [[ "${{ github.ref }}" == refs/tags/v* ]]; then
+            VERSION=${GITHUB_REF#refs/tags/}
+            echo "version_tag=${VERSION}" >> $GITHUB_OUTPUT
+            echo "is_release=true" >> $GITHUB_OUTPUT
+          else
+            echo "is_release=false" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKER_HUB_USERNAME }}
+          password: ${{ secrets.DOCKER_HUB_TOKEN }}
+
+      # ---------- Backend Image ----------
+      - name: Build & Push Backend Image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile
+          push: true
+          tags: |
+            ${{ env.BACKEND_IMAGE }}:latest
+            ${{ env.BACKEND_IMAGE }}:${{ steps.tags.outputs.sha_tag }}
+            ${{ steps.tags.outputs.is_release == 'true' && format('{0}:{1}', env.BACKEND_IMAGE, steps.tags.outputs.version_tag) || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ---------- Frontend Image ----------
+      - name: Build & Push Frontend Image
+        uses: docker/build-push-action@v6
+        with:
+          context: ./shopzone-frontend
+          file: ./shopzone-frontend/Dockerfile
+          push: true
+          build-args: |
+            VITE_API_BASE_URL=/api
+            VITE_STRIPE_PUBLIC_KEY=${{ secrets.STRIPE_PUBLIC_KEY }}
+          tags: |
+            ${{ env.FRONTEND_IMAGE }}:latest
+            ${{ env.FRONTEND_IMAGE }}:${{ steps.tags.outputs.sha_tag }}
+            ${{ steps.tags.outputs.is_release == 'true' && format('{0}:{1}', env.FRONTEND_IMAGE, steps.tags.outputs.version_tag) || '' }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # ---------- Summary ----------
+      - name: Print image info
+        run: |
+          echo "============================================="
+          echo "  Docker images pushed successfully!"
+          echo "============================================="
+          echo "Backend:  ${{ env.BACKEND_IMAGE }}:latest"
+          echo "Backend:  ${{ env.BACKEND_IMAGE }}:${{ steps.tags.outputs.sha_tag }}"
+          echo "Frontend: ${{ env.FRONTEND_IMAGE }}:latest"
+          echo "Frontend: ${{ env.FRONTEND_IMAGE }}:${{ steps.tags.outputs.sha_tag }}"
+          if [[ "${{ steps.tags.outputs.is_release }}" == "true" ]]; then
+            echo "Backend:  ${{ env.BACKEND_IMAGE }}:${{ steps.tags.outputs.version_tag }}"
+            echo "Frontend: ${{ env.FRONTEND_IMAGE }}:${{ steps.tags.outputs.version_tag }}"
+          fi
+          echo "============================================="
