@@ -1,0 +1,63 @@
+# ============================================================
+# ShopZone — Pull Request Check
+#
+# Lightweight check that runs on every PR.
+# Validates that both backend and frontend compile successfully.
+# Faster than the full CI pipeline since it skips Docker builds.
+# ============================================================
+
+name: PR Check
+
+on:
+  pull_request:
+    branches: [main]
+
+concurrency:
+  group: pr-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  backend-check:
+    name: Backend Compile Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: '17'
+          distribution: 'temurin'
+          cache: 'maven'
+
+      - name: Compile & package
+        run: ./mvnw clean package -DskipTests -B
+
+  frontend-check:
+    name: Frontend Build Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node.js 22
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: 'npm'
+          cache-dependency-path: shopzone-frontend/package-lock.json
+
+      - name: Install dependencies
+        working-directory: shopzone-frontend
+        run: npm ci
+
+      - name: Lint
+        working-directory: shopzone-frontend
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Build
+        working-directory: shopzone-frontend
+        env:
+          VITE_API_BASE_URL: /api
+          VITE_STRIPE_PUBLISHABLE_KEY: pk_test_placeholder
+        run: npm run build
