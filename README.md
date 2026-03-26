@@ -7,6 +7,8 @@
 [![Redis](https://img.shields.io/badge/Redis-7-red.svg)](https://redis.io/)
 [![Stripe](https://img.shields.io/badge/Stripe-Integrated-blueviolet.svg)](https://stripe.com/)
 [![License](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![CI/CD](https://github.com/ThejeshMundlapati/shopzone/actions/workflows/ci.yml/badge.svg)](https://github.com/ThejeshMundlapati/shopzone/actions/workflows/ci.yml)
+[![Docker Hub](https://img.shields.io/badge/Docker%20Hub-Images-blue.svg)](https://hub.docker.com/u/thejeshmundlapati)
 
 A full-featured e-commerce platform built with Spring Boot, demonstrating industry-standard practices for building scalable web applications.
 
@@ -78,7 +80,7 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 - [x] Similar products recommendations
 - [x] MongoDB to Elasticsearch sync
 
-#### Week 7: Email Notifications & Admin Dashboard ✅ 
+#### Week 7: Email Notifications & Admin Dashboard ✅
 - [x] Email notifications for order lifecycle events
 - [x] Welcome email on user registration
 - [x] Thymeleaf HTML email templates with responsive design
@@ -93,7 +95,7 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 
 ### Phase 3: Frontend Development
 
-#### Week 8-9: React Customer Frontend ✅ 
+#### Week 8-9: React Customer Frontend ✅
 - [x] React 19 + Vite 7 + Tailwind CSS 4
 - [x] Redux Toolkit state management (5 slices)
 - [x] JWT auth with automatic token refresh
@@ -103,7 +105,7 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 - [x] Product reviews with verified purchase badges
 - [x] Responsive design with Tailwind CSS
 
-#### Week 10-11: Admin Dashboard ✅ 
+#### Week 10-11: Admin Dashboard ✅
 - [x] Admin dashboard with Recharts data visualization
 - [x] Product management (CRUD + image upload)
 - [x] Category management with hierarchy
@@ -117,7 +119,7 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 
 ### Phase 4: Docker & CI/CD
 
-#### Week 12: Dockerization ✅ 🆕
+#### Week 12: Dockerization ✅
 - [x] Multi-stage Dockerfile for backend (JDK build → JRE runtime, ~300MB)
 - [x] Multi-stage Dockerfile for frontend (Node build → Nginx runtime, ~25MB)
 - [x] Full-stack docker-compose.yml orchestrating 6 services
@@ -129,10 +131,18 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 - [x] Stripe CLI Docker service on stripe profile
 - [x] Security headers in Nginx (X-Frame-Options, X-Content-Type-Options)
 - [x] Static asset caching with immutable cache headers
-- 
+
+#### Week 13: CI/CD Pipeline ✅ 🆕
+- [x] GitHub Actions CI/CD pipeline (build → test → Docker push)
+- [x] Parallel job execution (backend + frontend build simultaneously)
+- [x] Docker Hub integration with multi-tag strategy (latest, SHA, version)
+- [x] PR validation workflow for compile and build checks
+- [x] Dependabot automated dependency updates (Maven, npm, Docker, Actions)
+- [x] Maven and npm dependency caching for faster builds
+- [x] Docker layer caching via GitHub Actions cache
+- [x] Concurrency control (cancels stale pipeline runs)
 
 ### Upcoming
-- [ ] Phase 4: CI/CD Pipeline
 - [ ] Phase 5: Microservices + Kafka
 - [ ] Phase 6: Kubernetes & Monitoring
 
@@ -146,13 +156,14 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
 | **Databases** | PostgreSQL 15 (Users, Orders, Payments), MongoDB 7 (Products), Redis 7 (Cart) |
 | **Payments** | Stripe API (Test Mode) |
 | **Search** | Elasticsearch 8.11 |
-| **Email** | Spring Mail, Thymeleaf, Mailtrap  |
+| **Email** | Spring Mail, Thymeleaf, Mailtrap |
 | **Image Storage** | Cloudinary |
 | **Documentation** | Swagger/OpenAPI 3.0 |
 | **Containerization** | Docker, Docker Compose |
-| **Frontend** | React 19, Vite 7, Tailwind CSS 4, Redux Toolkit, React Router 7  |
-| **Charts** | Recharts  |
-| **Payments (Frontend)** | Stripe.js, React Stripe Elements  |
+| **CI/CD** | GitHub Actions, Docker Hub, Dependabot |
+| **Frontend** | React 19, Vite 7, Tailwind CSS 4, Redux Toolkit, React Router 7 |
+| **Charts** | Recharts |
+| **Payments (Frontend)** | Stripe.js, React Stripe Elements |
 
 ## 🏗️ Architecture
 
@@ -180,7 +191,7 @@ A full-featured e-commerce platform built with Spring Boot, demonstrating indust
  EmailLogs Categories Wishlist                          Index
 ```
 
-### Docker Architecture (Phase 4) 🆕
+### Docker Architecture (Phase 4)
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
@@ -222,7 +233,7 @@ Multi-Stage Builds:
 - Maven 3.8+
 - Stripe Account (for payments)
 - Cloudinary Account (for images)
-- Mailtrap Account (for email testing) 
+- Mailtrap Account (for email testing)
 
 ### 1. Clone Repository
 ```bash
@@ -277,7 +288,7 @@ POST /api/search/admin/sync
 Authorization: Bearer {admin_token}
 ```
 
-### 🐳 Running with Docker (Recommended) 🆕
+### 🐳 Running with Docker (Recommended)
 
 > **One command to start the entire stack** — no local Java, Node, or database installs needed.
 
@@ -321,6 +332,32 @@ docker compose down -v       # Delete all data
 | MongoDB | localhost:27017 | MongoDB 7.0 |
 | Redis | localhost:6379 | Redis 7 |
 | Elasticsearch | localhost:9200 | Elasticsearch 8.11 |
+
+## 🔄 CI/CD Pipeline
+
+Every push to `main` triggers an automated pipeline:
+
+```
+Push to GitHub → Build Backend (Maven) ──┐
+                                         ├→ Build Docker Images → Push to Docker Hub
+               → Build Frontend (Vite) ──┘
+```
+
+**Pipeline status:** [![CI/CD](https://github.com/ThejeshMundlapati/shopzone/actions/workflows/ci.yml/badge.svg)](https://github.com/ThejeshMundlapati/shopzone/actions/workflows/ci.yml)
+
+### Pull Pre-Built Images (No Build Required)
+
+```bash
+docker pull thejeshmundlapati/shopzone-backend:latest
+docker pull thejeshmundlapati/shopzone-frontend:latest
+```
+
+### Pipeline Features
+- **Parallel builds** — Backend and frontend compile simultaneously
+- **Dependency caching** — Maven, npm, and Docker layers cached between runs
+- **Multi-tag images** — `latest`, git SHA (e.g., `abc1234`), version tags (e.g., `v2.3.0`)
+- **PR checks** — Compile validation on every pull request
+- **Dependabot** — Automated weekly dependency update PRs
 
 ## 📚 API Documentation
 
@@ -408,21 +445,21 @@ docker compose down -v       # Delete all data
 | GET | `/api/admin/payments/{orderNumber}/refund-eligibility` | Check refund eligibility |
 | GET | `/api/admin/payments/stats` | Get payment statistics |
 
-### Admin Dashboard 
+### Admin Dashboard
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/admin/dashboard/stats` | Comprehensive statistics |
 | GET | `/api/admin/dashboard/recent-orders` | Recent orders summary |
 | GET | `/api/admin/dashboard/top-products` | Top selling products |
 
-### Admin Reports 
+### Admin Reports
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/admin/reports/sales` | Sales report (daily/weekly/monthly) |
 | GET | `/api/admin/reports/users` | User statistics & top customers |
 | GET | `/api/admin/reports/revenue` | Revenue analytics & trends |
 
-### Admin User Management 
+### Admin User Management
 | Method | Endpoint | Description |
 |--------|----------|-------------|
 | GET | `/api/admin/users` | List all users |
@@ -434,6 +471,11 @@ docker compose down -v       # Delete all data
 
 ```
 shopzone/
+├── .github/                    # CI/CD (Week 13)
+│   ├── workflows/
+│   │   ├── ci.yml              # Main CI/CD pipeline
+│   │   └── pr-check.yml        # PR validation
+│   └── dependabot.yml          # Automated dependency updates
 ├── src/main/java/com/shopzone/    # Backend (Spring Boot)
 │   ├── config/
 │   ├── controller/
@@ -446,7 +488,9 @@ shopzone/
 │   ├── templates/email/
 │   └── application.yml
 ├── docker/
-│   └── docker-compose.yml
+│   ├── docker-compose.yml
+│   ├── .env.example
+│   └── application-docker.yml
 ├── docs/
 │   ├── API.md
 │   ├── ARCHITECTURE.md
@@ -475,8 +519,12 @@ shopzone/
 │   │   │   └── ... (auth, cart, product, order, wishlist slices)
 │   │   ├── App.jsx
 │   │   └── main.jsx
+│   ├── Dockerfile              # Multi-stage build (Node → Nginx)
+│   ├── nginx.conf
 │   ├── package.json
 │   └── vite.config.js
+├── Dockerfile                  # Backend multi-stage build (JDK → JRE)
+├── pom.xml
 └── README.md
 ```
 
@@ -525,7 +573,7 @@ shopzone/
 └─────────────────────────────────────────────────────────────┘
 ```
 
-## 📧 Email Notification Flow  
+## 📧 Email Notification Flow
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
@@ -546,7 +594,7 @@ shopzone/
 ```
 
 
-## 🖥️ Admin Dashboard 
+## 🖥️ Admin Dashboard
 
 ```
 ┌─────────────────────────────────────────────────────────────┐

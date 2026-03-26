@@ -5,7 +5,38 @@ All notable changes to ShopZone will be documented in this file.
 
 ---
 
-## [2.2.0] - 2026-03-21 — Phase 4 Week 12: Dockerization 🆕
+## [2.3.0] - 2026-03-25 — Phase 4 Week 13: CI/CD Pipeline 🆕
+
+### Added
+- GitHub Actions CI/CD pipeline with multi-job parallel workflow
+- Automated Docker image builds and pushes to Docker Hub on every push to main
+- PR validation workflow for compile and build checks
+- Dependabot configuration for Maven, npm, Docker, and GitHub Actions dependencies
+- Multi-tag Docker image strategy (latest, git SHA, version tag)
+- Maven and npm dependency caching in CI
+- Docker layer caching via GitHub Actions cache (gha)
+- Concurrency control to cancel stale CI runs
+
+### Fixed
+- Frontend Dockerfile ARG/ENV variable mismatch (VITE_API_BASE_URL, VITE_STRIPE_PUBLISHABLE_KEY)
+- Docker Compose frontend build-args aligned with corrected Dockerfile
+
+### Files Added
+```
+.github/workflows/ci.yml          — Main CI/CD pipeline
+.github/workflows/pr-check.yml    — PR validation workflow
+.github/dependabot.yml             — Automated dependency updates
+```
+
+### Files Updated
+```
+shopzone-frontend/Dockerfile       — Fixed ARG/ENV mismatch
+docker/docker-compose.yml          — Fixed frontend build-args
+```
+
+---
+
+## [2.2.0] - 2026-03-21 — Phase 4 Week 12: Dockerization 
 
 ### Added
 - Multi-stage Dockerfile for backend (JDK build → JRE runtime, ~300MB final image)
@@ -780,10 +811,11 @@ GET    /api/auth/verify-email
 
 | Version | Date       | Phase | Focus |
 |---------|------------|-------|-------|
+| v2.3.0  | 2026-03-25 | 4     | CI/CD Pipeline |
 | v1.6.0  | 2026-02-19 | 2     | Email Notifications & Admin Dashboard  |
 | v1.5.0  | 2026-02-17 | 2     | Reviews & Elasticsearch |
 | v1.4.0  | 2026-02-12 | 2     | Stripe Payment Integration |
 | v1.3.0  | 2026-01-29 | 1     | Orders & Checkout |
 | v1.2.0  | 2026-01-16 | 1     | Cart, Wishlist, Address |
 | v1.1.0  | 2026-01-05 | 1     | Product Catalog |
-| v1.0.0  | 2025-12-27 | 1     | Authentication |
+| v1.0.0  | 2025-12-27 | 1     | Authentication 

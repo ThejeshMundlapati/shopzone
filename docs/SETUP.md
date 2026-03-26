@@ -13,7 +13,7 @@
 
 ---
 
-## Docker Setup (Full Stack) 🆕
+## Docker Setup (Full Stack) 
 
 ### Prerequisites
 - Docker Desktop v4.0+ ([download](https://docker.com/products/docker-desktop))
@@ -38,6 +38,47 @@ docker compose ps
 #   Swagger:   http://localhost:8080/swagger-ui.html
 #   Health:    http://localhost:8080/actuator/health
 ```
+
+## CI/CD Setup (GitHub Actions) 🆕
+
+### Prerequisites
+- GitHub repository (public)
+- Docker Hub account ([hub.docker.com](https://hub.docker.com), free tier)
+- Docker Hub access token (Read & Write permissions)
+
+### GitHub Secrets Required
+
+Configure at: Repository → Settings → Secrets and variables → Actions
+
+| Secret | Description | Where to find |
+|--------|-------------|---------------|
+| `DOCKER_HUB_USERNAME` | Your Docker Hub username | Docker Hub profile |
+| `DOCKER_HUB_TOKEN` | Docker Hub access token | Docker Hub → Account Settings → Security → Access Tokens |
+| `STRIPE_PUBLIC_KEY` | Stripe publishable key (`pk_test_...`) | [Stripe Dashboard](https://dashboard.stripe.com/test/apikeys) |
+
+### Pipeline Triggers
+
+| Event | Workflow | What Happens |
+|-------|----------|-------------|
+| Push to `main` | `ci.yml` | Full build + Docker push to Docker Hub |
+| Push version tag (`v*`) | `ci.yml` | Full build + Docker push with version tag |
+| Pull request to `main` | `pr-check.yml` | Compile + build check only (no Docker push) |
+
+### Monitoring
+
+| What | URL |
+|------|-----|
+| Pipeline runs | https://github.com/ThejeshMundlapati/shopzone/actions |
+| Docker Hub images | https://hub.docker.com/u/thejeshmundlapati |
+| Dependabot PRs | https://github.com/ThejeshMundlapati/shopzone/pulls?q=label:dependencies |
+
+### Pull Pre-Built Images
+```bash
+docker pull thejeshmundlapati/shopzone-backend:latest
+docker pull thejeshmundlapati/shopzone-frontend:latest
+```
+
+---
 
 ### Useful Commands
 | Command | Description |
