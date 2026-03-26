@@ -31,7 +31,7 @@ ENV VITE_STRIPE_PUBLISHABLE_KEY=${VITE_STRIPE_PUBLISHABLE_KEY}
 RUN npm run build
 
 # ==================== STAGE 2: RUNTIME ====================
-FROM nginx:1.27-alpine AS runtime
+FROM nginx:1.29-alpine AS runtime
 
 # Remove default Nginx website
 RUN rm -rf /usr/share/nginx/html/*
