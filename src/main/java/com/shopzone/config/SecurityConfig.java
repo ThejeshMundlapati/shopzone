@@ -52,8 +52,11 @@ public class SecurityConfig {
                 "/v3/api-docs/**",
                 "/api-docs/**",
                 "/swagger-resources/**",
-                "/webjars/**"
+                "/webjars/**",
+                "/actuator/**"
             ).permitAll()
+
+            .requestMatchers("/api/payments/webhook").permitAll()
 
             .requestMatchers(
                 "/api/auth/register",

@@ -1247,7 +1247,7 @@ spring:
                     
 ---
 
-## Docker Architecture (Phase 4 — Week 12) 🆕
+## Docker Architecture (Phase 4 — Week 12) 
 
 ### Container Topology
 ```
@@ -1346,9 +1346,75 @@ spring:
 
 | # | Pattern | Where Used |
 |---|---------|-----------|
-| 17 | **Multi-Stage Build** 🆕 | Backend & Frontend Dockerfiles — separate build and runtime stages |
-| 18 | **Reverse Proxy** 🆕 | Nginx proxies `/api/` to Spring Boot, serves React SPA |
-| 19 | **Health Check + Dependency Ordering** 🆕 | `depends_on` with `condition: service_healthy` |
-| 20 | **Profile-Based Services** 🆕 | Stripe CLI only runs with `--profile stripe` |
-| 21 | **Environment Templating** 🆕 | `.env.example` committed, `.env` gitignored |
+| 17 | **Multi-Stage Build**  | Backend & Frontend Dockerfiles — separate build and runtime stages |
+| 18 | **Reverse Proxy**  | Nginx proxies `/api/` to Spring Boot, serves React SPA |
+| 19 | **Health Check + Dependency Ordering**  | `depends_on` with `condition: service_healthy` |
+| 20 | **Profile-Based Services**  | Stripe CLI only runs with `--profile stripe` |
+| 21 | **Environment Templating**  | `.env.example` committed, `.env` gitignored |
+
+
+
+## CI/CD Architecture (Phase 4 — Week 13) 🆕
+
+### Pipeline Flow
+```
+Developer pushes to main
+│
+▼
+┌───────────────────────────────┐
+│   GitHub Actions Triggered    │
+└──────┬───────────┬────────────┘
+│           │
+▼           ▼
+┌──────────┐ ┌──────────────┐
+│  Build   │ │    Build     │      ← Parallel execution
+│ Backend  │ │  Frontend    │
+│ (Maven)  │ │ (npm + Vite) │
+└────┬─────┘ └──────┬───────┘
+│               │
+└───────┬───────┘
+▼
+┌──────────────────┐
+│  Build Docker    │
+│  Images (Buildx) │
+└────────┬─────────┘
+▼
+┌──────────────────┐
+│  Push to Docker  │      ← Only on main branch
+│  Hub Registry    │
+└──────────────────┘
+```
+
+### Image Tagging Strategy
+
+| Tag | Example | Purpose |
+|-----|---------|---------|
+| `latest` | `shopzone-backend:latest` | Most recent build on main |
+| Git SHA | `shopzone-backend:abc1234` | Exact commit traceability |
+| Version | `shopzone-backend:v2.3.0` | Release versions |
+
+### Caching Strategy
+
+| Layer | Cache Type | Impact |
+|-------|-----------|--------|
+| Maven dependencies | GitHub Actions cache | ~3 min savings |
+| npm packages | GitHub Actions cache | ~1 min savings |
+| Docker layers | GitHub Actions cache (gha) | ~2-3 min savings |
+
+### Security
+
+- Credentials stored as GitHub Secrets (encrypted at rest, masked in logs)
+- Docker Hub access token with scoped permissions (not password)
+- Stripe publishable key only (never secret key in CI)
+- Non-root Docker containers for runtime security
+
+### CI/CD Design Patterns
+
+| # | Pattern | Where Used |
+|---|---------|-----------|
+| 22 | **Parallel Job Execution** 🆕 | Backend and frontend build simultaneously |
+| 23 | **Dependency Caching** 🆕 | Maven, npm, Docker layers cached between runs |
+| 24 | **Concurrency Control** 🆕 | Stale runs cancelled on new push |
+| 25 | **Multi-Tag Strategy** 🆕 | latest + SHA + semver for traceability |
+| 26 | **Automated Dependency Updates** 🆕 | Dependabot for all ecosystems |
 ```

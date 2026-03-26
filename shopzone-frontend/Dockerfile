@@ -1,9 +1,10 @@
 # ============================================================
 # ShopZone Frontend — Multi-Stage Dockerfile
+# File: shopzone-frontend/Dockerfile
+#
 # ============================================================
 
 # ==================== STAGE 1: BUILD ====================
-# Uses Node.js to install dependencies and build static files
 FROM node:22-alpine AS build
 
 WORKDIR /app
@@ -17,20 +18,19 @@ RUN npm ci
 # Copy source code
 COPY . .
 
-# Set the API URL for production build
-# In Docker, Nginx proxies /api/ to the backend, so we use relative URL
+# --- FIXED: ARG and ENV now use the same variable names ---
+# API base URL for production build (Nginx proxies /api/ to backend)
 ARG VITE_API_BASE_URL=/api
-ENV VITE_API_BASE_URL=${VITE_API_URL}
+ENV VITE_API_BASE_URL=${VITE_API_BASE_URL}
 
-# Pass Stripe public key at build time
-ARG VITE_STRIPE_PUBLIC_KEY
-ENV VITE_STRIPE_PUBLIC_KEY=${VITE_STRIPE_PUBLIC_KEY}
+# Stripe publishable key (passed at build time)
+ARG VITE_STRIPE_PUBLISHABLE_KEY
+ENV VITE_STRIPE_PUBLISHABLE_KEY=${VITE_STRIPE_PUBLISHABLE_KEY}
 
 # Build the production bundle
 RUN npm run build
 
 # ==================== STAGE 2: RUNTIME ====================
-# Uses Nginx to serve the built static files — tiny ~25MB image
 FROM nginx:1.27-alpine AS runtime
 
 # Remove default Nginx website
@@ -49,5 +49,4 @@ EXPOSE 80
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
   CMD wget --no-verbose --tries=1 --spider http://localhost:80/ || exit 1
 
-# Nginx runs as its own user by default, no need to change
 CMD ["nginx", "-g", "daemon off;"]
