@@ -5,7 +5,7 @@
 
 # ==================== STAGE 1: BUILD ====================
 # Uses full JDK + Maven to compile the application
-FROM eclipse-temurin:17-jdk-alpine AS build
+FROM eclipse-temurin:25-jdk-alpine AS build
 
 WORKDIR /app
 
@@ -29,7 +29,7 @@ RUN ./mvnw package -DskipTests -B
 
 # ==================== STAGE 2: RUNTIME ====================
 # Uses slim JRE only — no JDK, no Maven, no source code
-FROM eclipse-temurin:17-jre-alpine AS runtime
+FROM eclipse-temurin:25-jre-alpine AS runtime
 
 WORKDIR /app
 
