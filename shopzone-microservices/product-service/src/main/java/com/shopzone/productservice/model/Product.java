@@ -1,0 +1,40 @@
+package com.shopzone.productservice.model;
+
+import lombok.*;
+import org.springframework.data.annotation.*;
+import org.springframework.data.mongodb.core.index.*;
+import org.springframework.data.mongodb.core.mapping.Document;
+import java.math.BigDecimal;
+import java.time.LocalDateTime;
+import java.util.*;
+
+@Data @Builder @NoArgsConstructor @AllArgsConstructor
+@Document(collection = "products")
+public class Product {
+    @Id private String id;
+    @TextIndexed(weight = 10) private String name;
+    @TextIndexed(weight = 5) private String description;
+    @Indexed(unique = true) private String slug;
+    @Indexed(unique = true, sparse = true) private String sku;
+    private BigDecimal price;
+    private BigDecimal discountPrice;
+    private Integer discountPercentage;
+    @Builder.Default private Integer stock = 0;
+    @Indexed private String categoryId;
+    @Indexed private String brand;
+    @Builder.Default private List<String> images = new ArrayList<>();
+    @Builder.Default private List<String> tags = new ArrayList<>();
+    @Builder.Default private boolean active = true;
+    @Builder.Default private boolean featured = false;
+    private ProductDetails details;
+    @Builder.Default @Indexed private Double averageRating = 0.0;
+    @Builder.Default private Integer reviewCount = 0;
+    @CreatedDate private LocalDateTime createdAt;
+    @LastModifiedDate private LocalDateTime updatedAt;
+
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class ProductDetails {
+        private String weight, dimensions, color, size, material;
+        private Map<String, String> specifications;
+    }
+}

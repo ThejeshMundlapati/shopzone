@@ -1,0 +1,91 @@
+# ============================================================
+# ShopZone Microservices — Docker Compose
+#
+# Usage:
+#   cd docker
+#   docker compose up -d                    # Start databases only
+#   docker compose --profile services up -d # Start everything
+# ============================================================
+
+services:
+
+  # ==================== DATABASES ====================
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: shopzone-postgres
+    environment:
+      POSTGRES_USER: shopzone_admin
+      POSTGRES_PASSWORD: shopzone_secret_2024
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-databases.sql:/docker-entrypoint-initdb.d/init.sql
+    networks:
+      - shopzone-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shopzone_admin"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  mongodb:
+    image: mongo:7.0
+    container_name: shopzone-mongodb
+    ports:
+      - "27017:27017"
+    volumes:
+      - mongodb_data:/data/db
+    networks:
+      - shopzone-network
+    healthcheck:
+      test: ["CMD", "mongosh", "--eval", "db.adminCommand('ping')"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: shopzone-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    command: redis-server --appendonly yes
+    networks:
+      - shopzone-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: shopzone-elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - es_data:/usr/share/elasticsearch/data
+    networks:
+      - shopzone-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -s http://localhost:9200/_cluster/health | grep -vq '\"status\":\"red\"'"]
+      interval: 20s
+      timeout: 10s
+      retries: 10
+
+volumes:
+  postgres_data:
+  mongodb_data:
+  redis_data:
+  es_data:
+
+networks:
+  shopzone-network:
+    driver: bridge

@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Welcome to ShopZone!</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; background-color: #f4f4f4; }
+        .container { max-width: 600px; margin: 0 auto; padding: 20px; }
+        .header { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; padding: 40px 30px; text-align: center; border-radius: 10px 10px 0 0; }
+        .header h1 { margin: 0; font-size: 32px; }
+        .header p { margin: 10px 0 0 0; opacity: 0.9; }
+        .content { background: white; padding: 30px; border-radius: 0 0 10px 10px; box-shadow: 0 2px 10px rgba(0,0,0,0.1); }
+        .welcome-icon { font-size: 60px; text-align: center; margin-bottom: 20px; }
+        .feature-grid { display: flex; flex-wrap: wrap; gap: 15px; margin: 30px 0; }
+        .feature-box { flex: 1; min-width: 200px; background: #f9f9f9; padding: 20px; border-radius: 10px; text-align: center; }
+        .feature-icon { font-size: 30px; margin-bottom: 10px; }
+        .feature-title { font-weight: bold; margin-bottom: 5px; }
+        .feature-desc { font-size: 13px; color: #666; }
+        .cta-box { background: linear-gradient(135deg, #ffecd2 0%, #fcb69f 100%); padding: 25px; border-radius: 10px; text-align: center; margin: 30px 0; }
+        .button { display: inline-block; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white !important; padding: 15px 40px; text-decoration: none; border-radius: 5px; margin: 10px 5px; font-weight: bold; font-size: 16px; }
+        .footer { text-align: center; padding: 20px; color: #666; font-size: 12px; }
+        .social-links { margin: 20px 0; }
+        .social-links a { display: inline-block; margin: 0 10px; font-size: 24px; text-decoration: none; }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header">
+        <h1>🛒 Welcome to ShopZone!</h1>
+        <p>Your shopping journey begins here</p>
+    </div>
+
+    <div class="content">
+        <div class="welcome-icon">👋</div>
+        <h2 style="text-align: center;">Hi <span th:text="${userName}">there</span>!</h2>
+
+        <p style="text-align: center; font-size: 18px;">
+            Thank you for joining <strong>ShopZone</strong>! We're thrilled to have you as part of our community.
+        </p>
+
+        <!-- Features -->
+        <div class="feature-grid">
+            <div class="feature-box">
+                <div class="feature-icon">🚚</div>
+                <div class="feature-title">Fast Shipping</div>
+                <div class="feature-desc">Free delivery on orders over $50</div>
+            </div>
+            <div class="feature-box">
+                <div class="feature-icon">🔒</div>
+                <div class="feature-title">Secure Payments</div>
+                <div class="feature-desc">100% secure checkout</div>
+            </div>
+            <div class="feature-box">
+                <div class="feature-icon">↩️</div>
+                <div class="feature-title">Easy Returns</div>
+                <div class="feature-desc">30-day return policy</div>
+            </div>
+            <div class="feature-box">
+                <div class="feature-icon">💬</div>
+                <div class="feature-title">24/7 Support</div>
+                <div class="feature-desc">We're here to help</div>
+            </div>
+        </div>
+
+        <!-- CTA -->
+        <div class="cta-box">
+            <h3 style="margin-top: 0;">🎁 Welcome Gift!</h3>
+            <p style="font-size: 18px; margin: 10px 0;">
+                Use code <strong style="color: #764ba2;">WELCOME10</strong> for 10% off your first order!
+            </p>
+            <a th:href="${shopUrl}" class="button">Start Shopping</a>
+        </div>
+
+        <div style="text-align: center; margin-top: 30px;">
+            <p style="color: #666;">
+                If you have any questions, our support team is just an email away at
+                <a href="mailto:support@shopzone.com">support@shopzone.com</a>
+            </p>
+        </div>
+    </div>
+
+    <div class="footer">
+        <div class="social-links">
+            <a href="#">📘</a>
+            <a href="#">📸</a>
+            <a href="#">🐦</a>
+        </div>
+        <p>© 2024 ShopZone. All rights reserved.</p>
+        <p>You received this email because you signed up at ShopZone.</p>
+    </div>
+</div>
+</body>
+</html>

@@ -1,0 +1,19 @@
+server:
+  port: 8087
+spring:
+  application:
+    name: search-service
+  elasticsearch:
+    uris: http://localhost:9200
+    connection-timeout: 5s
+    socket-timeout: 30s
+
+jwt:
+  secret: c2hvcHpvbmUtc2VjcmV0LWtleS1mb3Itand0LXRva2VuLWdlbmVyYXRpb24td2hpY2gtc2hvdWxkLWJlLWxvbmctZW5vdWdoLTI1Ni1iaXRz
+
+services:
+  product-url: http://localhost:8082
+
+logging:
+  level:
+    com.shopzone.searchservice: DEBUG

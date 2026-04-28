@@ -1,0 +1,45 @@
+server:
+  port: 8081
+
+spring:
+  application:
+    name: user-service
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/shopzone_users
+    username: shopzone_admin
+    password: shopzone_secret_2024
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+
+# JWT Configuration (User Service is the ONLY service that generates tokens)
+jwt:
+  secret: c2hvcHpvbmUtc2VjcmV0LWtleS1mb3Itand0LXRva2VuLWdlbmVyYXRpb24td2hpY2gtc2hvdWxkLWJlLWxvbmctZW5vdWdoLTI1Ni1iaXRz
+  expiration: 86400000
+  refresh-expiration: 604800000
+
+# Inter-service URLs (direct for now — replaced by Eureka in Week 16)
+services:
+  notification-url: http://localhost:8086
+
+# Swagger
+springdoc:
+  api-docs:
+    path: /api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    try-it-out-enabled: true
+
+# Logging
+logging:
+  level:
+    root: INFO
+    com.shopzone.userservice: DEBUG
