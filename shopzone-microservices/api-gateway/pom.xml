@@ -1,0 +1,112 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+╔══════════════════════════════════════════════════════════════════╗
+║  FILE: shopzone-microservices/api-gateway/pom.xml                ║
+║  ACTION: CREATE NEW                                              ║
+║                                                                  ║
+║  NOTE: Gateway uses Spring Cloud Gateway (reactive/Netty),       ║
+║  NOT spring-boot-starter-web (Tomcat). These two conflict.       ║
+║  Since the parent pom has spring-boot-starter-security globally, ║
+║  we exclude spring-boot-starter-web transitively where needed.   ║
+╚══════════════════════════════════════════════════════════════════╝
+-->
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+
+    <parent>
+        <groupId>com.shopzone</groupId>
+        <artifactId>shopzone-microservices</artifactId>
+        <version>3.0.0-SNAPSHOT</version>
+    </parent>
+
+    <artifactId>api-gateway</artifactId>
+    <name>API Gateway</name>
+    <description>Spring Cloud Gateway - Single entry point for all ShopZone microservices</description>
+
+    <dependencies>
+        <!-- Spring Cloud Gateway (reactive — uses Netty, NOT Tomcat) -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-gateway</artifactId>
+        </dependency>
+
+        <!-- Eureka Client — so Gateway can discover services -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-netflix-eureka-client</artifactId>
+        </dependency>
+
+        <!-- Actuator for health checks -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-actuator</artifactId>
+        </dependency>
+
+        <!-- JWT validation at the gateway -->
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-api</artifactId>
+            <version>${jjwt.version}</version>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-impl</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+        <dependency>
+            <groupId>io.jsonwebtoken</groupId>
+            <artifactId>jjwt-jackson</artifactId>
+            <version>${jjwt.version}</version>
+            <scope>runtime</scope>
+        </dependency>
+
+        <!-- Resilience4j for circuit breaker patterns -->
+        <dependency>
+            <groupId>org.springframework.cloud</groupId>
+            <artifactId>spring-cloud-starter-circuitbreaker-reactor-resilience4j</artifactId>
+        </dependency>
+
+        <!-- Redis for rate limiting -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-data-redis-reactive</artifactId>
+        </dependency>
+
+        <!--
+            IMPORTANT: The parent pom includes spring-boot-starter-security globally,
+            which pulls in spring-boot-starter-web (Tomcat). Spring Cloud Gateway
+            requires Netty, NOT Tomcat. We must exclude the servlet-based security
+            and web starters, then use reactive security instead.
+        -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-security</artifactId>
+            <exclusions>
+                <exclusion>
+                    <groupId>org.springframework.boot</groupId>
+                    <artifactId>spring-boot-starter-web</artifactId>
+                </exclusion>
+            </exclusions>
+        </dependency>
+    </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.springframework.boot</groupId>
+                <artifactId>spring-boot-maven-plugin</artifactId>
+                <configuration>
+                    <excludes>
+                        <exclude>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                        </exclude>
+                    </excludes>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
+</project>
