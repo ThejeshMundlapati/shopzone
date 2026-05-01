@@ -1,0 +1,53 @@
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║  FILE: discovery-server/src/main/resources/application.yml     ║
+# ║  ACTION: CREATE NEW                                             ║
+# ╚══════════════════════════════════════════════════════════════════╝
+#
+# WHY THESE SETTINGS:
+# - port 8761 is the conventional Eureka port
+# - register-with-eureka: false — this IS the server, it doesn't register with itself
+# - fetch-registry: false — it doesn't need to fetch from itself
+# - spring.security credentials protect the dashboard
+
+server:
+  port: 8761
+
+spring:
+  application:
+    name: discovery-server
+
+  # Basic auth for Eureka dashboard
+  security:
+    user:
+      name: eureka
+      password: ${EUREKA_PASSWORD:password}
+
+# Eureka server configuration
+eureka:
+  instance:
+    hostname: localhost
+  client:
+    register-with-eureka: false
+    fetch-registry: false
+    service-url:
+      defaultZone: http://${spring.security.user.name}:${spring.security.user.password}@localhost:${server.port}/eureka/
+  server:
+    # How long to wait before evicting a service that stopped sending heartbeats
+    eviction-interval-timer-in-ms: 5000
+    # Don't enable self-preservation in dev (it keeps dead services registered)
+    enable-self-preservation: false
+
+# Actuator
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      show-details: always
+
+logging:
+  level:
+    com.netflix.eureka: WARN
+    com.netflix.discovery: WARN

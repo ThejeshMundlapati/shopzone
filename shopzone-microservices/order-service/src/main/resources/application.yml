@@ -1,5 +1,12 @@
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║  FILE: order-service/src/main/resources/application.yml        ║
+# ║  ACTION: REPLACE your current file with this                    ║
+# ║  CHANGES: Added eureka block + changed all service URLs         ║
+# ╚══════════════════════════════════════════════════════════════════╝
+
 server:
   port: 8084
+
 spring:
   application:
     name: order-service
@@ -19,12 +26,13 @@ spring:
 jwt:
   secret: c2hvcHpvbmUtc2VjcmV0LWtleS1mb3Itand0LXRva2VuLWdlbmVyYXRpb24td2hpY2gtc2hvdWxkLWJlLWxvbmctZW5vdWdoLTI1Ni1iaXRz
 
+# Inter-service URLs (now using Eureka service names)
 services:
-  user-url: http://localhost:8081
-  product-url: http://localhost:8082
-  cart-url: http://localhost:8083
-  payment-url: http://localhost:8085
-  notification-url: http://localhost:8086
+  user-url: http://user-service
+  product-url: http://product-service
+  cart-url: http://cart-service
+  payment-url: http://payment-service
+  notification-url: http://notification-service
 
 shopzone:
   order:
@@ -33,6 +41,16 @@ shopzone:
     flat-shipping-rate: 5.99
     cancellation-window-hours: 24
     low-stock-threshold: 10
+
+# ═══ NEW: Eureka Service Discovery ═══
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URI:http://eureka:password@localhost:8761/eureka/}
+    registry-fetch-interval-seconds: 10
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}:${random.value}
 
 logging:
   level:

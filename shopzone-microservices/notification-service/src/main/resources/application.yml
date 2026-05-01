@@ -1,5 +1,12 @@
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║  FILE: notification-service/src/main/resources/application.yml ║
+# ║  ACTION: REPLACE your current file with this                    ║
+# ║  CHANGES: Added eureka block only (no service URLs to change)   ║
+# ╚══════════════════════════════════════════════════════════════════╝
+
 server:
   port: 8086
+
 spring:
   application:
     name: notification-service
@@ -31,6 +38,16 @@ shopzone:
     url: ${APP_BASE_URL:http://localhost:3000}
   email:
     from: ${MAIL_FROM:noreply@shopzone.com}
+
+# ═══ NEW: Eureka Service Discovery ═══
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URI:http://eureka:password@localhost:8761/eureka/}
+    registry-fetch-interval-seconds: 10
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}:${random.value}
 
 logging:
   level:

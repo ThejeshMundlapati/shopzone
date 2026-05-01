@@ -4,7 +4,7 @@
 # Usage:
 #   cd docker
 #   docker compose up -d                    # Start databases only
-#   docker compose --profile services up -d # Start everything
+#   docker compose --profile infra up -d    # Start databases + Eureka + Gateway
 # ============================================================
 
 services:
@@ -79,6 +79,69 @@ services:
       interval: 20s
       timeout: 10s
       retries: 10
+
+  # ==================== SERVICE DISCOVERY (NEW — Week 16) ====================
+
+  # Eureka Server — services register here and discover each other by name
+  # Dashboard: http://localhost:8761 (login: eureka / password)
+  #
+  # Profile "infra" means this only starts when you explicitly ask for it:
+  #   docker compose --profile infra up -d
+  # Without --profile infra, only databases start (same as before).
+  discovery-server:
+    build:
+      context: ../discovery-server
+      dockerfile: Dockerfile
+    image: shopzone/discovery-server:latest
+    container_name: shopzone-discovery-server
+    profiles:
+      - infra
+      - full
+    ports:
+      - "8761:8761"
+    environment:
+      - EUREKA_PASSWORD=password
+    networks:
+      - shopzone-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://eureka:password@localhost:8761/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  # ==================== API GATEWAY (NEW — Week 16) ====================
+
+  # Single entry point for all client requests — port 8080
+  # Routes requests to the correct service via Eureka lookup
+  api-gateway:
+    build:
+      context: ../api-gateway
+      dockerfile: Dockerfile
+    image: shopzone/api-gateway:latest
+    container_name: shopzone-api-gateway
+    profiles:
+      - infra
+      - full
+    ports:
+      - "8080:8080"
+    environment:
+      - EUREKA_URI=http://eureka:password@discovery-server:8761/eureka/
+      - REDIS_HOST=redis
+      - JWT_SECRET=${JWT_SECRET:-mySecretKeyThatIsAtLeast256BitsLongForHS256Algorithm2024}
+    depends_on:
+      discovery-server:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - shopzone-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -sf http://localhost:8080/actuator/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
 
 volumes:
   postgres_data:

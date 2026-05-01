@@ -1,3 +1,9 @@
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║  FILE: user-service/src/main/resources/application.yml         ║
+# ║  ACTION: REPLACE your current file with this                    ║
+# ║  CHANGES: Added eureka block + changed notification-url         ║
+# ╚══════════════════════════════════════════════════════════════════╝
+
 server:
   port: 8081
 
@@ -26,9 +32,9 @@ jwt:
   expiration: 86400000
   refresh-expiration: 604800000
 
-# Inter-service URLs (direct for now — replaced by Eureka in Week 16)
+# Inter-service URLs (now using Eureka service names)
 services:
-  notification-url: http://localhost:8086
+  notification-url: http://notification-service
 
 # Swagger
 springdoc:
@@ -37,6 +43,16 @@ springdoc:
   swagger-ui:
     path: /swagger-ui.html
     try-it-out-enabled: true
+
+# ═══ NEW: Eureka Service Discovery ═══
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URI:http://eureka:password@localhost:8761/eureka/}
+    registry-fetch-interval-seconds: 10
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}:${random.value}
 
 # Logging
 logging:

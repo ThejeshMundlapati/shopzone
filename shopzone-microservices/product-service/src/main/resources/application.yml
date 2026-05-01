@@ -1,3 +1,9 @@
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║  FILE: product-service/src/main/resources/application.yml      ║
+# ║  ACTION: REPLACE your current file with this                    ║
+# ║  CHANGES: Added eureka block + changed search-url               ║
+# ╚══════════════════════════════════════════════════════════════════╝
+
 server:
   port: 8082
 
@@ -18,14 +24,25 @@ cloudinary:
   api-secret: ${CLOUDINARY_API_SECRET:your_api_secret}
   folder: shopzone/products
 
+# Inter-service URLs (now using Eureka service names)
 services:
-  search-url: http://localhost:8087
+  search-url: http://search-service
 
 springdoc:
   api-docs:
     path: /api-docs
   swagger-ui:
     path: /swagger-ui.html
+
+# ═══ NEW: Eureka Service Discovery ═══
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URI:http://eureka:password@localhost:8761/eureka/}
+    registry-fetch-interval-seconds: 10
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}:${random.value}
 
 logging:
   level:
