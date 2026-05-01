@@ -1,5 +1,12 @@
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║  FILE: payment-service/src/main/resources/application.yml      ║
+# ║  ACTION: REPLACE your current file with this                    ║
+# ║  CHANGES: Added eureka block + changed service URLs             ║
+# ╚══════════════════════════════════════════════════════════════════╝
+
 server:
   port: 8085
+
 spring:
   application:
     name: payment-service
@@ -22,12 +29,23 @@ stripe:
   webhook-secret: ${STRIPE_WEBHOOK_SECRET:whsec_placeholder}
   currency: usd
 
+# Inter-service URLs (now using Eureka service names)
 services:
-  order-url: http://localhost:8084
-  notification-url: http://localhost:8086
+  order-url: http://order-service
+  notification-url: http://notification-service
 
 payment:
   max-refund-days: 30
+
+# ═══ NEW: Eureka Service Discovery ═══
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URI:http://eureka:password@localhost:8761/eureka/}
+    registry-fetch-interval-seconds: 10
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}:${random.value}
 
 logging:
   level:

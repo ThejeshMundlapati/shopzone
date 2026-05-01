@@ -1,5 +1,12 @@
+# ╔══════════════════════════════════════════════════════════════════╗
+# ║  FILE: cart-service/src/main/resources/application.yml         ║
+# ║  ACTION: REPLACE your current file with this                    ║
+# ║  CHANGES: Added eureka block + changed product-url              ║
+# ╚══════════════════════════════════════════════════════════════════╝
+
 server:
   port: 8083
+
 spring:
   application:
     name: cart-service
@@ -8,14 +15,29 @@ spring:
       host: localhost
       port: 6379
       timeout: 60000ms
+
 jwt:
   secret: c2hvcHpvbmUtc2VjcmV0LWtleS1mb3Itand0LXRva2VuLWdlbmVyYXRpb24td2hpY2gtc2hvdWxkLWJlLWxvbmctZW5vdWdoLTI1Ni1iaXRz
+
+# Inter-service URLs (now using Eureka service names)
 services:
-  product-url: http://localhost:8082
+  product-url: http://product-service
+
 cart:
   expiration-days: 30
   max-items: 50
   max-quantity-per-item: 10
+
+# ═══ NEW: Eureka Service Discovery ═══
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URI:http://eureka:password@localhost:8761/eureka/}
+    registry-fetch-interval-seconds: 10
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}:${random.value}
+
 logging:
   level:
     com.shopzone.cartservice: DEBUG
