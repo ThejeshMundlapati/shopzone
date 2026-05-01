@@ -1,27 +1,31 @@
 package com.shopzone.common.config;
 
-import org.springframework.boot.web.client.RestTemplateBuilder;
+/*
+╔══════════════════════════════════════════════════════════════════╗
+║  FILE: shopzone-common/src/main/java/com/shopzone/common/       ║
+║        config/RestClientConfig.java                              ║
+║  ACTION: MODIFY — add @LoadBalanced annotation                   ║
+╚══════════════════════════════════════════════════════════════════╝
+*/
+
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.web.client.RestTemplate;
 
-import java.time.Duration;
-
-/**
- * RestTemplate configuration for inter-service communication.
- * All services use this to call other services via HTTP.
- *
- * In Week 16 (API Gateway + Eureka), these URLs become service names
- * resolved by Eureka. For now, they're direct localhost URLs.
- */
 @Configuration
 public class RestClientConfig {
 
+    /**
+     * Load-balanced RestTemplate.
+     *
+     * With @LoadBalanced, URLs like "http://user-service/api/internal/users/..."
+     * are resolved via Eureka. Spring replaces "user-service" with the actual
+     * host:port (e.g., "192.168.1.5:8081") before making the HTTP call.
+     */
     @Bean
-    public RestTemplate restTemplate(RestTemplateBuilder builder) {
-        return builder
-            .setConnectTimeout(Duration.ofSeconds(5))
-            .setReadTimeout(Duration.ofSeconds(10))
-                .build();
+    @LoadBalanced
+    public RestTemplate restTemplate() {
+        return new RestTemplate();
     }
 }
