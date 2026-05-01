@@ -1,4 +1,16 @@
 <?xml version="1.0" encoding="UTF-8"?>
+<!--
+╔══════════════════════════════════════════════════════════════════╗
+║  FILE: shopzone-microservices/pom.xml                           ║
+║  ACTION: REPLACE with this file                                  ║
+║                                                                  ║
+║  CHANGES FROM v3.0.0:                                            ║
+║  1. Added spring-cloud.version property                          ║
+║  2. Added Spring Cloud BOM in dependencyManagement               ║
+║  3. Added discovery-server and api-gateway modules               ║
+║  Everything else is IDENTICAL to v3.0.0                          ║
+╚══════════════════════════════════════════════════════════════════╝
+-->
 <project xmlns="http://maven.apache.org/POM/4.0.0"
          xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
@@ -23,10 +35,13 @@
         <lombok.version>1.18.36</lombok.version>
         <jjwt.version>0.12.3</jjwt.version>
         <springdoc.version>2.3.0</springdoc.version>
+        <spring-cloud.version>2023.0.1</spring-cloud.version>  <!-- NEW: Spring Cloud version -->
     </properties>
 
     <modules>
         <module>shopzone-common</module>
+        <module>discovery-server</module>   <!-- NEW -->
+        <module>api-gateway</module>        <!-- NEW -->
         <module>user-service</module>
         <module>product-service</module>
         <module>cart-service</module>
@@ -44,6 +59,15 @@
                 <groupId>com.shopzone</groupId>
                 <artifactId>shopzone-common</artifactId>
                 <version>${project.version}</version>
+            </dependency>
+
+            <!-- NEW: Spring Cloud BOM — manages all Spring Cloud dependency versions -->
+            <dependency>
+                <groupId>org.springframework.cloud</groupId>
+                <artifactId>spring-cloud-dependencies</artifactId>
+                <version>${spring-cloud.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
             </dependency>
         </dependencies>
     </dependencyManagement>
