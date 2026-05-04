@@ -5,9 +5,11 @@ import com.shopzone.orderservice.client.*;
 import com.shopzone.orderservice.config.OrderConfig;
 import com.shopzone.orderservice.dto.request.*;
 import com.shopzone.orderservice.dto.response.*;
+import com.shopzone.orderservice.kafka.OrderEventProducer;       // KAFKA: new import
 import com.shopzone.orderservice.model.*;
 import com.shopzone.orderservice.model.enums.*;
 import com.shopzone.orderservice.repository.OrderRepository;
+import com.shopzone.orderservice.saga.OrderSagaManager;          // KAFKA: new import
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.*;
@@ -25,6 +27,8 @@ public class OrderService {
     private final ProductClient productClient;
     private final NotificationClient notificationClient;
     private final OrderConfig orderConfig;
+    private final OrderEventProducer orderEventProducer;   // KAFKA: new dependency
+    private final OrderSagaManager sagaManager;            // KAFKA: new dependency
 
     // === User order operations ===
     @Transactional(readOnly = true)
@@ -57,10 +61,19 @@ public class OrderService {
         order.setCancellationReason(request.getReason());
         order.setCancelledBy("USER");
         order.setPaymentStatus(PaymentStatus.CANCELLED);
-        restoreStock(order);
+        // KAFKA: Don't call restoreStock directly — publish event instead.
+        // Product Service will restore stock when it receives ORDER_CANCELLED.
         order = orderRepository.save(order);
 
-        notificationClient.sendOrderCancelled(orderNumber, order.getUserEmail(), order.getUserFullName(), request.getReason());
+        // KAFKA: Publish cancellation event (replaces direct REST calls)
+        orderEventProducer.publishOrderCancelled(order, request.getReason());
+
+        // KEEP REST fallback for notification (will be removed once Kafka is fully tested)
+        try {
+            notificationClient.sendOrderCancelled(orderNumber, order.getUserEmail(), order.getUserFullName(), request.getReason());
+        } catch (Exception e) {
+            log.debug("REST notification fallback failed (Kafka will handle it): {}", e.getMessage());
+        }
         return OrderResponse.fromEntity(order);
     }
 
@@ -85,7 +98,10 @@ public class OrderService {
             order.setTrackingNumber(request.getTrackingNumber());
             order.setShippingCarrier(request.getShippingCarrier());
         }
-        if (newStatus == OrderStatus.CANCELLED) { order.setCancelledBy("ADMIN"); restoreStock(order); }
+        if (newStatus == OrderStatus.CANCELLED) {
+            order.setCancelledBy("ADMIN");
+            // KAFKA: Don't call restoreStock directly — ORDER_CANCELLED event handles it
+        }
         order.updateStatus(newStatus);
         if (request.getAdminNotes() != null && !request.getAdminNotes().isBlank()) {
             String existing = order.getAdminNotes() != null ? order.getAdminNotes() + "\n" : "";
@@ -93,15 +109,29 @@ public class OrderService {
         }
         order = orderRepository.save(order);
 
-        // Send notification
+        // KAFKA: Publish events based on new status (replaces direct notification calls)
         switch (newStatus) {
-            case CONFIRMED -> notificationClient.sendOrderConfirmation(orderNumber, order.getUserEmail(), order.getUserFullName());
-            case SHIPPED -> notificationClient.sendOrderShipped(orderNumber, order.getUserEmail(), order.getUserFullName(),
-                request.getTrackingNumber(), request.getShippingCarrier());
-            case DELIVERED -> notificationClient.sendOrderDelivered(orderNumber, order.getUserEmail(), order.getUserFullName());
-            case CANCELLED -> notificationClient.sendOrderCancelled(orderNumber, order.getUserEmail(), order.getUserFullName(), "Admin cancelled");
+            case CONFIRMED -> orderEventProducer.publishOrderConfirmed(order);
+            case SHIPPED -> orderEventProducer.publishOrderShipped(order);
+            case DELIVERED -> orderEventProducer.publishOrderDelivered(order);
+            case CANCELLED -> orderEventProducer.publishOrderCancelled(order, "Admin cancelled");
             default -> {}
         }
+
+        // KEEP REST fallback for notifications (will be removed once Kafka is fully tested)
+        try {
+            switch (newStatus) {
+                case CONFIRMED -> notificationClient.sendOrderConfirmation(orderNumber, order.getUserEmail(), order.getUserFullName());
+                case SHIPPED -> notificationClient.sendOrderShipped(orderNumber, order.getUserEmail(), order.getUserFullName(),
+                    request.getTrackingNumber(), request.getShippingCarrier());
+                case DELIVERED -> notificationClient.sendOrderDelivered(orderNumber, order.getUserEmail(), order.getUserFullName());
+                case CANCELLED -> notificationClient.sendOrderCancelled(orderNumber, order.getUserEmail(), order.getUserFullName(), "Admin cancelled");
+                default -> {}
+            }
+        } catch (Exception e) {
+            log.debug("REST notification fallback failed (Kafka will handle it): {}", e.getMessage());
+        }
+
         return OrderResponse.fromEntity(order);
     }
 
@@ -155,5 +185,10 @@ public class OrderService {
 
     private void restoreStock(Order order) {
         order.getItems().forEach(item -> productClient.increaseStock(item.getProductId(), item.getQuantity()));
+    }
+
+    // KAFKA: Called by CheckoutService after order is persisted to start the saga
+    public void startOrderSaga(Order order) {
+        sagaManager.startSaga(order);
     }
 }
