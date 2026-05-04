@@ -7,9 +7,11 @@ import com.shopzone.orderservice.client.*;
 import com.shopzone.orderservice.config.OrderConfig;
 import com.shopzone.orderservice.dto.request.CheckoutRequest;
 import com.shopzone.orderservice.dto.response.*;
+import com.shopzone.orderservice.kafka.OrderEventProducer;
 import com.shopzone.orderservice.model.*;
 import com.shopzone.orderservice.model.enums.*;
 import com.shopzone.orderservice.repository.OrderRepository;
+import com.shopzone.orderservice.saga.OrderSagaManager;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -30,6 +32,7 @@ public class CheckoutService {
     private final CartClient cartClient;
     private final PaymentClient paymentClient;
     private final ObjectMapper objectMapper;
+    private final OrderSagaManager sagaManager;
 
     @Transactional
     public OrderWithPaymentResponse placeOrderWithPayment(String userEmail, CheckoutRequest request) {
@@ -120,6 +123,10 @@ public class CheckoutService {
 
         // 8. Clear cart
         cartClient.clearCart(userEmail);
+
+        // KAFKA: Start saga AFTER all DB writes so the saga row is committed
+        // before Product Service can respond with STOCK_RESERVED
+        sagaManager.startSaga(order);
 
         return OrderWithPaymentResponse.builder()
             .order(OrderResponse.fromEntity(order))

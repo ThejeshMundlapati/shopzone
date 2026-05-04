@@ -27,10 +27,18 @@ spring:
       mail.smtp.auth: true
       mail.smtp.starttls.enable: true
   thymeleaf:
-    prefix: classpath:/templates/
+    prefix: classpath:/templates/email/
     suffix: .html
     mode: HTML
     cache: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.shopzone.common.event
 
 shopzone:
   app:
@@ -48,6 +56,8 @@ eureka:
   instance:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${server.port}:${random.value}
+
+
 
 logging:
   level:
