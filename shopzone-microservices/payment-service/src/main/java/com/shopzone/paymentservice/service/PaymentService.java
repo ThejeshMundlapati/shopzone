@@ -3,6 +3,7 @@ package com.shopzone.paymentservice.service;
 import com.shopzone.common.exception.*;
 import com.shopzone.paymentservice.client.OrderClient;
 import com.shopzone.paymentservice.config.StripeConfig;
+import com.shopzone.paymentservice.kafka.PaymentEventProducer;  // KAFKA: new import
 import com.shopzone.paymentservice.model.Payment;
 import com.shopzone.paymentservice.model.enums.*;
 import com.shopzone.paymentservice.repository.PaymentRepository;
@@ -24,6 +25,7 @@ public class PaymentService {
     private final StripeService stripeService;
     private final StripeConfig stripeConfig;
     private final OrderClient orderClient;
+    private final PaymentEventProducer paymentEventProducer;  // KAFKA: new dependency
 
     @Transactional
     public Map<String, Object> createPaymentIntent(String orderId, String orderNumber,
@@ -36,6 +38,9 @@ public class PaymentService {
             .amount(amount).currency(stripeConfig.getCurrency()).status(PaymentStatus.AWAITING_PAYMENT)
             .build();
         paymentRepository.save(payment);
+
+        // KAFKA: Publish PAYMENT_CREATED event
+        paymentEventProducer.publishPaymentCreated(payment);
 
         return Map.of("paymentIntentId", intent.getId(), "clientSecret", intent.getClientSecret(),
             "publishableKey", stripeConfig.getPublicKey(), "orderNumber", orderNumber,
@@ -53,8 +58,17 @@ public class PaymentService {
         payment.setPaymentMethod(PaymentMethod.CARD);
         paymentRepository.save(payment);
 
-        // Notify Order Service
-        orderClient.recordPayment(payment.getOrderId(), chargeId, receiptUrl);
+        // KAFKA: Publish PAYMENT_SUCCESS event (Order Service saga listens for this)
+        paymentEventProducer.publishPaymentSuccess(payment);
+
+        // KEEP REST fallback — Order Service records payment via REST too
+        // This ensures backward compatibility during migration
+        try {
+            orderClient.recordPayment(payment.getOrderId(), chargeId, receiptUrl);
+        } catch (Exception e) {
+            log.debug("REST order update fallback failed (Kafka saga will handle it): {}", e.getMessage());
+        }
+
         log.info("Payment success for order: {}", payment.getOrderNumber());
     }
 
@@ -66,7 +80,16 @@ public class PaymentService {
         payment.setFailureCode(code);
         payment.setFailureMessage(message);
         paymentRepository.save(payment);
-        orderClient.recordPaymentFailure(payment.getOrderId());
+
+        // KAFKA: Publish PAYMENT_FAILED event (triggers saga compensation)
+        paymentEventProducer.publishPaymentFailed(payment);
+
+        // KEEP REST fallback
+        try {
+            orderClient.recordPaymentFailure(payment.getOrderId());
+        } catch (Exception e) {
+            log.debug("REST order update fallback failed (Kafka saga will handle it): {}", e.getMessage());
+        }
     }
 
     public boolean existsByPaymentIntentId(String intentId) {

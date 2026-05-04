@@ -19,6 +19,17 @@ spring:
     hibernate:
       ddl-auto: update
     show-sql: false
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+    consumer:
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
+      properties:
+        spring.json.trusted.packages: com.shopzone.common.event
 
 jwt:
   secret: c2hvcHpvbmUtc2VjcmV0LWtleS1mb3Itand0LXRva2VuLWdlbmVyYXRpb24td2hpY2gtc2hvdWxkLWJlLWxvbmctZW5vdWdoLTI1Ni1iaXRz
@@ -46,6 +57,7 @@ eureka:
   instance:
     prefer-ip-address: true
     instance-id: ${spring.application.name}:${server.port}:${random.value}
+
 
 logging:
   level:
