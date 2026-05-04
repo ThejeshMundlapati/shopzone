@@ -117,3 +117,4 @@ coverage/
 docker-compose.override.yml
 
 shopzone-microservices/start-all.ps1
+shopzone-microservices/test-kafka.ps1
