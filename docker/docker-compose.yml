@@ -26,7 +26,7 @@ services:
       POSTGRES_USER: shopzone_admin
       POSTGRES_PASSWORD: shopzone_secret_2024
     ports:
-      - "5432:5432"
+      - "5432:5432"    #ports: "HOST:CONTAINER" This punches a hole through Docker's firewall. For example, "5432:5432" means "Map port 5432 on my actual laptop to port 5432 inside this specific container."
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -65,7 +65,7 @@ services:
       - redis_data:/data
     networks:
       - shopzone-network
-    command: redis-server --appendonly yes
+    command: redis-server --appendonly yes #Normally, Redis stores everything purely in RAM (which means if it crashes, everything is instantly deleted). The --appendonly yes command tells Redis to also write a log to the hard drive, so if the container restarts, users don't lose the items in their shopping carts.
     healthcheck:
       test: ["CMD", "redis-cli", "ping"]
       interval: 10s

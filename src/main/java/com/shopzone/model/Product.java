@@ -27,7 +27,7 @@ public class Product {
   @Id
   private String id;
 
-  @TextIndexed(weight = 10)
+  @TextIndexed(weight = 10) // higher the weight higher the relevance(importance), used for searching
   private String name;
 
   @TextIndexed(weight = 5)
