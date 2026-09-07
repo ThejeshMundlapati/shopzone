@@ -1,0 +1,28 @@
+# ============================================================
+#  Namespace + shared ConfigMap
+#  apply first:  kubectl apply -f 00-namespace-and-config.yaml
+# ============================================================
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: shopzone
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: shopzone-config
+  namespace: shopzone
+data:
+  # Where every service finds Eureka. "discovery-server" resolves via K8s DNS
+  # to the discovery-server Service (port 8761). eureka:password = its basic auth.
+  EUREKA_URI: "http://eureka:password@discovery-server:8761/eureka/"
+
+  # Kafka runs on the HOST (docker-compose). host.minikube.internal is the
+  # Minikube -> host bridge. See README about the advertised-listener caveat.
+  KAFKA_BOOTSTRAP_SERVERS: "host.minikube.internal:9092"
+
+  # Shared Postgres username (same across the 4 SQL services).
+  SPRING_DATASOURCE_USERNAME: "shopzone_admin"
+
+  # Make the JVM respect each pod's memory limit instead of the whole node.
+  JAVA_TOOL_OPTIONS: "-XX:MaxRAMPercentage=75.0"

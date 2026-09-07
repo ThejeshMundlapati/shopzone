@@ -1,0 +1,149 @@
+# ============================================================
+#  Infrastructure services: discovery-server + api-gateway
+#  apply AFTER 00 and the Secret, and BEFORE the business services:
+#     kubectl apply -f 01-infra.yaml
+#  Then wait for discovery-server to be Ready before the rest register.
+# ============================================================
+
+# ----------------------- discovery-server (Eureka) -----------------------
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: discovery-server
+  namespace: shopzone
+  labels:
+    app: discovery-server
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: discovery-server
+  template:
+    metadata:
+      labels:
+        app: discovery-server
+    spec:
+      containers:
+        - name: discovery-server
+          image: shopzone/discovery-server:latest
+          imagePullPolicy: Never          # use the image we built into Minikube's daemon
+          ports:
+            - containerPort: 8761
+          env:
+            # discovery-server's application.yml uses ${EUREKA_PASSWORD:password}
+            - name: EUREKA_PASSWORD
+              value: "password"
+            - name: JAVA_TOOL_OPTIONS
+              value: "-XX:MaxRAMPercentage=75.0"
+          # TCP probes: discovery secures /actuator/health with basic auth,
+          # so an HTTP probe would 401. TCP just checks the port is listening.
+          startupProbe:
+            tcpSocket:
+              port: 8761
+            periodSeconds: 10
+            failureThreshold: 30          # up to ~5 min for first cold start
+          readinessProbe:
+            tcpSocket:
+              port: 8761
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: 8761
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "768Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: discovery-server           # MUST match the hostname in EUREKA_URI
+  namespace: shopzone
+spec:
+  selector:
+    app: discovery-server
+  ports:
+    - name: http
+      port: 8761
+      targetPort: 8761
+  type: ClusterIP
+
+# ----------------------- api-gateway -----------------------
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api-gateway
+  namespace: shopzone
+  labels:
+    app: api-gateway
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: api-gateway
+  template:
+    metadata:
+      labels:
+        app: api-gateway
+    spec:
+      containers:
+        - name: api-gateway
+          image: shopzone/api-gateway:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8080
+          envFrom:
+            - configMapRef:
+                name: shopzone-config      # picks up EUREKA_URI, JAVA_TOOL_OPTIONS
+          env:
+            # gateway's yml uses ${REDIS_HOST:localhost} for rate-limiting
+            - name: REDIS_HOST
+              value: "host.minikube.internal"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: shopzone-secrets
+                  key: JWT_SECRET
+          startupProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket:
+              port: 8080
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests:
+              cpu: "250m"
+              memory: "256Mi"
+            limits:
+              cpu: "1000m"
+              memory: "768Mi"
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: api-gateway
+  namespace: shopzone
+spec:
+  selector:
+    app: api-gateway
+  ports:
+    - name: http
+      port: 8080
+      targetPort: 8080
+  type: ClusterIP

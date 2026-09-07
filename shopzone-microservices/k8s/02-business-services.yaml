@@ -1,0 +1,538 @@
+# ============================================================
+#  Business services: user, product, cart, order, payment,
+#  notification, search  (7 Deployments + 7 Services)
+#  apply AFTER discovery-server is Ready:
+#     kubectl apply -f 02-business-services.yaml
+#
+#  Every service:
+#   - envFrom shopzone-config  -> EUREKA_URI, KAFKA_BOOTSTRAP_SERVERS,
+#                                 SPRING_DATASOURCE_USERNAME, JAVA_TOOL_OPTIONS
+#   - datastore host overridden to host.minikube.internal via env
+#     (Spring env vars override the hardcoded localhost in application.yml)
+#   - TCP probes (see README for why not HTTP /actuator/health)
+#   - K8s Service on port 80 -> container port, so http://<name> resolves
+#     for any plain-DNS inter-service call; Eureka handles the rest.
+# ============================================================
+
+# ============================ user-service (8081, Postgres) ============================
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: user-service
+  namespace: shopzone
+  labels:
+    app: user-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: user-service
+  template:
+    metadata:
+      labels:
+        app: user-service
+    spec:
+      containers:
+        - name: user-service
+          image: shopzone/user-service:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8081
+          envFrom:
+            - configMapRef:
+                name: shopzone-config
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://host.minikube.internal:5432/shopzone_users"
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shopzone-secrets
+                  key: SPRING_DATASOURCE_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: shopzone-secrets
+                  key: JWT_SECRET
+          startupProbe:
+            tcpSocket: { port: 8081 }
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket: { port: 8081 }
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket: { port: 8081 }
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests: { cpu: "250m", memory: "256Mi" }
+            limits: { cpu: "1000m", memory: "768Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: user-service
+  namespace: shopzone
+spec:
+  selector:
+    app: user-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8081
+  type: ClusterIP
+
+# ============================ product-service (8082, MongoDB + Kafka + Cloudinary) ============================
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: product-service
+  namespace: shopzone
+  labels:
+    app: product-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: product-service
+  template:
+    metadata:
+      labels:
+        app: product-service
+    spec:
+      containers:
+        - name: product-service
+          image: shopzone/product-service:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8082
+          envFrom:
+            - configMapRef:
+                name: shopzone-config
+          env:
+            - name: SPRING_DATA_MONGODB_URI
+              value: "mongodb://host.minikube.internal:27017/shopzone_products"
+            - name: CLOUDINARY_CLOUD_NAME
+              value: "dgqv8qsi5"          # not secret; appears in every Cloudinary URL
+            - name: CLOUDINARY_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: shopzone-secrets
+                  key: CLOUDINARY_API_KEY
+            - name: CLOUDINARY_API_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: shopzone-secrets
+                  key: CLOUDINARY_API_SECRET
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: shopzone-secrets
+                  key: JWT_SECRET
+          startupProbe:
+            tcpSocket: { port: 8082 }
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket: { port: 8082 }
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket: { port: 8082 }
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests: { cpu: "250m", memory: "256Mi" }
+            limits: { cpu: "1000m", memory: "768Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: product-service
+  namespace: shopzone
+spec:
+  selector:
+    app: product-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8082
+  type: ClusterIP
+
+# ============================ cart-service (8083, Redis) ============================
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cart-service
+  namespace: shopzone
+  labels:
+    app: cart-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: cart-service
+  template:
+    metadata:
+      labels:
+        app: cart-service
+    spec:
+      containers:
+        - name: cart-service
+          image: shopzone/cart-service:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8083
+          envFrom:
+            - configMapRef:
+                name: shopzone-config
+          env:
+            - name: SPRING_DATA_REDIS_HOST
+              value: "host.minikube.internal"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: shopzone-secrets
+                  key: JWT_SECRET
+          startupProbe:
+            tcpSocket: { port: 8083 }
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket: { port: 8083 }
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket: { port: 8083 }
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests: { cpu: "250m", memory: "256Mi" }
+            limits: { cpu: "1000m", memory: "768Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: cart-service
+  namespace: shopzone
+spec:
+  selector:
+    app: cart-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8083
+  type: ClusterIP
+
+# ============================ order-service (8084, Postgres + Kafka) ============================
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: order-service
+  namespace: shopzone
+  labels:
+    app: order-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: order-service
+  template:
+    metadata:
+      labels:
+        app: order-service
+    spec:
+      containers:
+        - name: order-service
+          image: shopzone/order-service:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8084
+          envFrom:
+            - configMapRef:
+                name: shopzone-config
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://host.minikube.internal:5432/shopzone_orders"
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shopzone-secrets
+                  key: SPRING_DATASOURCE_PASSWORD
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: shopzone-secrets
+                  key: JWT_SECRET
+          startupProbe:
+            tcpSocket: { port: 8084 }
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket: { port: 8084 }
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket: { port: 8084 }
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests: { cpu: "250m", memory: "256Mi" }
+            limits: { cpu: "1000m", memory: "768Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: order-service
+  namespace: shopzone
+spec:
+  selector:
+    app: order-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8084
+  type: ClusterIP
+
+# ============================ payment-service (8085, Postgres + Kafka + Stripe) ============================
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: payment-service
+  namespace: shopzone
+  labels:
+    app: payment-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: payment-service
+  template:
+    metadata:
+      labels:
+        app: payment-service
+    spec:
+      containers:
+        - name: payment-service
+          image: shopzone/payment-service:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8085
+          envFrom:
+            - configMapRef:
+                name: shopzone-config
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://host.minikube.internal:5432/shopzone_payments"
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shopzone-secrets
+                  key: SPRING_DATASOURCE_PASSWORD
+            - name: STRIPE_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: shopzone-secrets
+                  key: STRIPE_SECRET_KEY
+            - name: STRIPE_PUBLIC_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: shopzone-secrets
+                  key: STRIPE_PUBLIC_KEY
+            - name: STRIPE_WEBHOOK_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: shopzone-secrets
+                  key: STRIPE_WEBHOOK_SECRET
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: shopzone-secrets
+                  key: JWT_SECRET
+          startupProbe:
+            tcpSocket: { port: 8085 }
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket: { port: 8085 }
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket: { port: 8085 }
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests: { cpu: "250m", memory: "256Mi" }
+            limits: { cpu: "1000m", memory: "768Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: payment-service
+  namespace: shopzone
+spec:
+  selector:
+    app: payment-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8085
+  type: ClusterIP
+
+# ============================ notification-service (8086, Postgres + Kafka consumer + Mail) ============================
+# No JWT (its application.yml has no jwt block) and no gateway route -- it is
+# event-driven (Kafka consumer). It still registers with Eureka.
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: notification-service
+  namespace: shopzone
+  labels:
+    app: notification-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: notification-service
+  template:
+    metadata:
+      labels:
+        app: notification-service
+    spec:
+      containers:
+        - name: notification-service
+          image: shopzone/notification-service:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8086
+          envFrom:
+            - configMapRef:
+                name: shopzone-config
+          env:
+            - name: SPRING_DATASOURCE_URL
+              value: "jdbc:postgresql://host.minikube.internal:5432/shopzone_notifications"
+            - name: SPRING_DATASOURCE_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shopzone-secrets
+                  key: SPRING_DATASOURCE_PASSWORD
+            - name: MAIL_HOST
+              value: "sandbox.smtp.mailtrap.io"
+            - name: MAIL_PORT
+              value: "2525"
+            - name: MAIL_FROM
+              value: "noreply@shopzone.com"
+            - name: APP_BASE_URL
+              value: "http://localhost:3000"
+            - name: MAIL_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: shopzone-secrets
+                  key: MAIL_USERNAME
+            - name: MAIL_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: shopzone-secrets
+                  key: MAIL_PASSWORD
+          startupProbe:
+            tcpSocket: { port: 8086 }
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket: { port: 8086 }
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket: { port: 8086 }
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests: { cpu: "250m", memory: "256Mi" }
+            limits: { cpu: "1000m", memory: "768Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: notification-service
+  namespace: shopzone
+spec:
+  selector:
+    app: notification-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8086
+  type: ClusterIP
+
+# ============================ search-service (8087, Elasticsearch + Kafka consumer) ============================
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: search-service
+  namespace: shopzone
+  labels:
+    app: search-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: search-service
+  template:
+    metadata:
+      labels:
+        app: search-service
+    spec:
+      containers:
+        - name: search-service
+          image: shopzone/search-service:latest
+          imagePullPolicy: Never
+          ports:
+            - containerPort: 8087
+          envFrom:
+            - configMapRef:
+                name: shopzone-config
+          env:
+            - name: SPRING_ELASTICSEARCH_URIS
+              value: "http://host.minikube.internal:9200"
+            - name: JWT_SECRET
+              valueFrom:
+                secretKeyRef:
+                  name: shopzone-secrets
+                  key: JWT_SECRET
+          startupProbe:
+            tcpSocket: { port: 8087 }
+            periodSeconds: 10
+            failureThreshold: 30
+          readinessProbe:
+            tcpSocket: { port: 8087 }
+            periodSeconds: 10
+            failureThreshold: 3
+          livenessProbe:
+            tcpSocket: { port: 8087 }
+            periodSeconds: 15
+            failureThreshold: 3
+          resources:
+            requests: { cpu: "250m", memory: "256Mi" }
+            limits: { cpu: "1000m", memory: "768Mi" }
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: search-service
+  namespace: shopzone
+spec:
+  selector:
+    app: search-service
+  ports:
+    - name: http
+      port: 80
+      targetPort: 8087
+  type: ClusterIP

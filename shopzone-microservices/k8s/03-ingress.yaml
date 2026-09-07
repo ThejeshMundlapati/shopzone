@@ -1,0 +1,28 @@
+# ============================================================
+#  Ingress -> api-gateway. Everything enters through the gateway,
+#  which then routes internally via Eureka.
+#  Needs the ingress addon:  minikube addons enable ingress
+#  apply LAST:  kubectl apply -f 03-ingress.yaml
+# ============================================================
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: shopzone-ingress
+  namespace: shopzone
+  annotations:
+    # allow product image uploads through the proxy
+    nginx.ingress.kubernetes.io/proxy-body-size: "16m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: shopzone.local
+      http:
+        paths:
+          # No path rewrite: the gateway needs the full /api/... path intact.
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: api-gateway
+                port:
+                  number: 8080
