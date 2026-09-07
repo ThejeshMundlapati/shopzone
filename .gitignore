@@ -118,3 +118,9 @@ docker-compose.override.yml
 
 shopzone-microservices/start-all.ps1
 shopzone-microservices/test-kafka.ps1
+# Week 19 testing artifacts
+address.json
+cart.json
+login.json
+order.json
+stripe.exe
