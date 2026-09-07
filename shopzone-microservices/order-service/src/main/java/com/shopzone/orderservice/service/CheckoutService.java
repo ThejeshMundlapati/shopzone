@@ -33,6 +33,8 @@ public class CheckoutService {
     private final PaymentClient paymentClient;
     private final ObjectMapper objectMapper;
     private final OrderSagaManager sagaManager;
+    @org.springframework.beans.factory.annotation.Value("${services.cart-url}")
+    private String cartServiceUrl;
 
     @Transactional
     public OrderWithPaymentResponse placeOrderWithPayment(String userEmail, CheckoutRequest request) {
@@ -138,7 +140,7 @@ public class CheckoutService {
     private List<Map<String, Object>> getCartItems(String userId) {
         try {
             org.springframework.web.client.RestTemplate rt = new org.springframework.web.client.RestTemplate();
-            String cartUrl = "http://localhost:8083/api/internal/cart/" + userId;
+            String cartUrl = cartServiceUrl + "/api/internal/cart/" + userId;
             var resp = rt.getForEntity(cartUrl, Map.class);
             if (resp.getBody() != null) {
                 Map<String, Object> body = (Map<String, Object>) resp.getBody();
