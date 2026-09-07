@@ -1,36 +1,42 @@
-# ╔══════════════════════════════════════════════════════════════════╗
-# ║  FILE: shopzone-microservices/discovery-server/Dockerfile       ║
-# ║  ACTION: CREATE NEW                                             ║
-# ╚══════════════════════════════════════════════════════════════════╝
+# ============================================================
+#  discovery-server  —  multi-stage image
+#  PLACE AT:  shopzone-microservices/discovery-server/Dockerfile
+#  BUILD (from the shopzone-microservices ROOT, not this folder):
+#     docker build -t shopzone/discovery-server:latest -f discovery-server/Dockerfile .
+# ============================================================
 
-# --- Stage 1: Build ---
+# ---------- Stage 1: build ----------
 FROM maven:3.9-eclipse-temurin-17-alpine AS build
 WORKDIR /app
 
-# Copy parent POM and common module first (for dependency caching)
-COPY pom.xml ./pom.xml
-COPY shopzone-common/pom.xml ./shopzone-common/pom.xml
-COPY discovery-server/pom.xml ./discovery-server/pom.xml
+# Your parent pom lists all 10 modules, and Maven reads EVERY listed module's
+# pom at reactor startup -- so all of them must be present or the build fails
+# with "Child module ... does not exist". Copying poms first also caches deps.
+COPY pom.xml ./
+COPY shopzone-common/pom.xml ./shopzone-common/
+COPY discovery-server/pom.xml ./discovery-server/
+COPY api-gateway/pom.xml ./api-gateway/
+COPY user-service/pom.xml ./user-service/
+COPY product-service/pom.xml ./product-service/
+COPY cart-service/pom.xml ./cart-service/
+COPY order-service/pom.xml ./order-service/
+COPY payment-service/pom.xml ./payment-service/
+COPY notification-service/pom.xml ./notification-service/
+COPY search-service/pom.xml ./search-service/
 
-# Download dependencies (cached unless POMs change)
+# Warm the dependency cache for this module (+ shopzone-common via -am)
 RUN mvn dependency:go-offline -pl discovery-server -am -B 2>/dev/null || true
 
-# Copy source code
+# Copy only the source this image needs
 COPY shopzone-common/src ./shopzone-common/src
 COPY discovery-server/src ./discovery-server/src
 
-# Build the discovery-server jar
+# Build just this module and its in-repo deps (shopzone-common)
 RUN mvn clean package -pl discovery-server -am -DskipTests -B
 
-# --- Stage 2: Run ---
+# ---------- Stage 2: runtime ----------
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-
-# Add curl for health checks
-RUN apk add --no-cache curl
-
 COPY --from=build /app/discovery-server/target/*.jar app.jar
-
 EXPOSE 8761
-
 ENTRYPOINT ["java", "-jar", "app.jar"]

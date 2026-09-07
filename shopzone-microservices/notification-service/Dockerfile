@@ -1,8 +1,8 @@
 # ============================================================
-#  api-gateway  —  multi-stage image
-#  PLACE AT:  shopzone-microservices/api-gateway/Dockerfile
+#  notification-service  —  multi-stage image
+#  PLACE AT:  shopzone-microservices/notification-service/Dockerfile
 #  BUILD (from the shopzone-microservices ROOT, not this folder):
-#     docker build -t shopzone/api-gateway:latest -f api-gateway/Dockerfile .
+#     docker build -t shopzone/notification-service:latest -f notification-service/Dockerfile .
 # ============================================================
 
 # ---------- Stage 1: build ----------
@@ -25,18 +25,18 @@ COPY notification-service/pom.xml ./notification-service/
 COPY search-service/pom.xml ./search-service/
 
 # Warm the dependency cache for this module (+ shopzone-common via -am)
-RUN mvn dependency:go-offline -pl api-gateway -am -B 2>/dev/null || true
+RUN mvn dependency:go-offline -pl notification-service -am -B 2>/dev/null || true
 
 # Copy only the source this image needs
 COPY shopzone-common/src ./shopzone-common/src
-COPY api-gateway/src ./api-gateway/src
+COPY notification-service/src ./notification-service/src
 
 # Build just this module and its in-repo deps (shopzone-common)
-RUN mvn clean package -pl api-gateway -am -DskipTests -B
+RUN mvn clean package -pl notification-service -am -DskipTests -B
 
 # ---------- Stage 2: runtime ----------
 FROM eclipse-temurin:17-jre-alpine
 WORKDIR /app
-COPY --from=build /app/api-gateway/target/*.jar app.jar
-EXPOSE 8080
+COPY --from=build /app/notification-service/target/*.jar app.jar
+EXPOSE 8086
 ENTRYPOINT ["java", "-jar", "app.jar"]

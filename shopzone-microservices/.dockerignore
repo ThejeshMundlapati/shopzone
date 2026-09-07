@@ -1,0 +1,14 @@
+# ============================================================
+#  SAVE THIS AS:  shopzone-microservices/.dockerignore
+#  Keeps the Docker build context small/fast (no target/, IDE junk).
+# ============================================================
+**/target/
+**/.idea/
+**/*.iml
+**/.vscode/
+**/*.log
+.git
+.gitignore
+docker/
+*.md
+*.ps1
